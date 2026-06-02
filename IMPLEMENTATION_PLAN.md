@@ -12,7 +12,7 @@ This project is a greenfield homelab auth gateway stack. Build the gateway and c
 - Container runtime: Docker Compose.
 - Network model: explicit per-app Docker networks, not one shared default network.
 - First app host: `tasks.${DOMAIN}`.
-- First app API: private `tasks-api` service serving `/api`, including `/api/mcp`.
+- First app API: private `tasks-api` service. Caddy strips `/api` for normal browser API routes such as `/api/users/me` to `/users/me`; agentgateway preserves the MCP resource path and proxies MCP to `tasks-api` at `/api/mcp`.
 - First app browser route: `/` is not served by `tasks-api`. Use either a minimal private static `tasks-web` container on the `tasks` network or point Caddy to a CDN/static origin.
 - API auth model: gateway-verified auth with trusted identity headers to APIs.
 - Service-to-service model: internal gateway verifies signed service/user JWTs, then injects the same trusted headers. APIs should not need JWT verification code.
@@ -39,7 +39,7 @@ Keep Keycloak as the homelab IdP. It provides OIDC discovery, authorization code
 
 agentgateway is the MCP resource gateway. It should handle MCP OAuth/resource-server behavior, protected-resource metadata, bearer-token validation, route policy, trusted header injection, and not forwarding MCP bearer tokens to `tasks-api`. Keycloak's role is to issue tokens and optionally register MCP clients dynamically.
 
-Start with static/admin-created Keycloak clients for browser SSO and local MCP testing. Support remote MCP client onboarding through Keycloak DCR when Claude web, ChatGPT web custom MCPs, or another remote MCP client requires dynamic registration.
+Start with static/admin-created Keycloak clients for browser SSO and local MCP testing. Support remote MCP client onboarding through Keycloak DCR when Claude web, ChatGPT web custom MCPs, or another remote MCP client requires dynamic registration. The current Caddy shape routes Keycloak realm paths broadly enough for DCR compatibility if Keycloak DCR is enabled; Keycloak DCR itself still needs restrictive client registration policies before anonymous public registration is allowed.
 
 Keycloak DCR endpoint, if enabled:
 
@@ -54,7 +54,7 @@ MCP resource identity for the first app:
 - MCP access tokens must be audience-bound to the MCP resource. Prefer validating `aud` contains `https://tasks.${DOMAIN}/api/mcp`. If agentgateway requires a non-URI audience such as `tasks-mcp`, document that choice and make the Keycloak audience mapper and agentgateway validation match exactly.
 - Create a Keycloak client scope or dedicated mapper that adds the MCP audience to access tokens used for `/api/mcp`. For dynamically registered MCP clients, ensure registration policy or post-registration setup does not issue tokens missing the MCP audience.
 
-DCR must not be exposed casually on the public internet. If it is needed for Claude/ChatGPT compatibility, use restrictive client registration policies:
+DCR must not be exposed casually on the public internet. Claude/ChatGPT MCP compatibility may require DCR, so when anonymous/public Keycloak DCR is enabled, use restrictive client registration policies:
 
 - Require authorization-code flow with PKCE.
 - Do not allow implicit flow.
@@ -63,7 +63,7 @@ DCR must not be exposed casually on the public internet. If it is needed for Cla
 - Restrict allowed scopes and protocol mappers.
 - Require consent for newly registered clients.
 - Set a low max-client limit and monitor registrations.
-- Disable anonymous DCR again if static/pre-registered clients are sufficient.
+- Disable anonymous DCR again if Claude/ChatGPT compatibility can be satisfied with static/pre-registered clients.
 
 ## Required Route Precedence For `tasks.${DOMAIN}`
 
@@ -156,7 +156,7 @@ Do not use `/api/mcp*`; it matches unwanted paths like `/api/mcpfoo`.
 - Route exact `/api/mcp` and `/api/mcp/*` to agentgateway, preserving the client `Authorization` header only as far as agentgateway.
 - Route exact `/api` and `/api/*` through an oauth2-proxy auth check, then to `tasks-api`.
 - Route browser `/` through an oauth2-proxy auth check, then to the frontend/app route. The frontend route is either `tasks-web` on the `tasks` network or a CDN/static origin; it must not proxy to `tasks-api`.
-- For browser `/`, use `forward_auth` against oauth2-proxy `/oauth2/auth` and explicitly convert auth-check `401` into a redirect to `/oauth2/sign_in?rd=...`.
+- For browser `/`, use `forward_auth` against oauth2-proxy `/oauth2/auth` and explicitly convert auth-check `401` into a redirect to `/oauth2/start?rd=...`.
 - For `/api` and `/api/*`, use the same auth check but return `401/403`, not a browser login redirect.
 - Strip inbound spoofable identity headers before proxying to oauth2-proxy, agentgateway, or any backend.
 - Strip inbound `Authorization` for browser and normal API routes unless a route is intentionally configured for bearer/API-client auth.
@@ -188,7 +188,7 @@ Strip these inbound headers on every public route before auth decisions and befo
 - `X-Auth-Request-*`
 - Inbound `Authorization` except on MCP routes and future explicit bearer API routes
 
-oauth2-proxy should be configured so `X-Auth-Request-User` is the stable Keycloak `sub`. Do **not** set `user_id_claim`; the internal default already uses `"sub"` for the user claim. Explicitly setting `user_id_claim = "sub"` triggers a backwards-compatibility bug in oauth2-proxy that overwrites `EmailClaim` with `"sub"`, causing `X-Auth-Request-Email` to return the subject UUID instead of the user's email.
+oauth2-proxy should be configured so `X-Auth-Request-User` is the stable Keycloak `sub`. Do **not** set `user_id_claim`; the internal default already uses `"sub"` for the user claim. Explicitly setting `user_id_claim = "sub"` triggers a backwards-compatibility bug in oauth2-proxy that overwrites `EmailClaim` with `"sub"`, causing `X-Auth-Request-Email` to return the subject UUID instead of the user's email. Also do not set `prefer_email_to_user`; it can make the user header mutable email instead of stable subject.
 
 After a successful auth check, map headers as follows:
 
@@ -222,6 +222,7 @@ Future external API clients should be added as explicit bearer-auth routes, sepa
 - Use `/oauth2/auth` as the auth-check endpoint.
 - Enable response identity headers with `set_xauthrequest`.
 - Do **not** set `user_id_claim`. The default user claim is already `"sub"`, and setting it explicitly triggers an oauth2-proxy backwards-compatibility bug that corrupts the email claim mapping.
+- Do **not** set `prefer_email_to_user`; `X-Auth-Request-User` must remain the immutable Keycloak subject, not email.
 - Configure the groups claim from Keycloak, for example `groups`.
 - Use PKCE with `S256`.
 - Use Redis session storage from the start.
@@ -243,7 +244,7 @@ When adding more app hosts, either register each callback URI on the same Keyclo
 - Set `KC_HOSTNAME=https://auth.${DOMAIN}`.
 - Set `KC_HTTP_ENABLED=true` for private HTTP from Caddy to Keycloak.
 - Set `KC_PROXY_HEADERS=xforwarded` or the current Keycloak equivalent.
-- Set `KC_PROXY_TRUSTED_ADDRESSES` or fixed Compose subnet CIDRs so Keycloak trusts forwarded headers only from Caddy, not arbitrary peers.
+- Set `KC_PROXY_TRUSTED_ADDRESSES` to Caddy's fixed `auth` network IP, currently `172.30.1.10/32`, so Keycloak trusts forwarded headers only from Caddy, not arbitrary peers on the Docker subnet.
 - Keep hostname strict in production. Do not rely on arbitrary incoming Host headers for issuer URLs.
 - Use Postgres, not the embedded dev database.
 - Do not publish Keycloak or Postgres host ports.
@@ -264,6 +265,7 @@ Public Keycloak access policy:
 
 - Publicly expose realm frontend/OIDC endpoints required for login, discovery, JWKS, token, userinfo, and MCP client compatibility.
 - If DCR is enabled, publicly expose only the needed Keycloak client-registration endpoint with strict client registration policies.
+- The current Caddy implementation publicly proxies `/realms/*` for OIDC and MCP-client compatibility, which includes the Keycloak client-registration path if Keycloak enables it. Do not enable anonymous DCR until Keycloak registration policies are configured.
 - Do not leave the admin console/API broadly public. Required policy for this stack is Caddy IP allowlisting through Cloudflare, based on both verified Cloudflare source and verified real client IP.
 - Because the VPS is behind Cloudflare proxy, a Caddy IP allowlist must account for Cloudflare. Trust only Cloudflare edge CIDRs as proxies, require the immediate peer to be Cloudflare, then compare the derived client IP against `ADMIN_ALLOWED_CIDRS` or equivalent. A raw socket IP allowlist alone will only see Cloudflare edge IPs and is not sufficient to identify the administrator.
 - The Keycloak admin matcher should conceptually be: admin path AND `remote_ip in CLOUDFLARE_EDGE_CIDRS` AND `client_ip in ADMIN_ALLOWED_CIDRS`. If any condition fails, return `403` before proxying to Keycloak.
@@ -276,7 +278,8 @@ Public Keycloak access policy:
 - Configure route matches for exact `/api/mcp` and prefix `/api/mcp/*`.
 - Configure an exact protected-resource metadata route for `/.well-known/oauth-protected-resource/api/mcp`.
 - If using agentgateway authorization-server proxy mode, configure exact routes for `/.well-known/oauth-authorization-server/api/mcp` and `/.well-known/oauth-authorization-server/api/mcp/client-registration`.
-- Proxy MCP traffic to the same `tasks-api` service that serves `/api`, preserving `/api/mcp` unless an explicit rewrite is needed.
+- Keep MCP metadata on a separate agentgateway route from protected MCP traffic so route-level audience/group authorization rules do not block public OAuth metadata.
+- Proxy MCP traffic to the same `tasks-api` service that serves the API, preserving `/api/mcp` as the upstream MCP endpoint.
 - Configure MCP authentication in strict mode unless local testing requires temporary permissive mode.
 - Validate issuer, signature, expiration, audience, and required groups/scopes. The intended audience must match the Keycloak MCP token audience plan exactly.
 - Require `/mcp-users` for MCP access.
@@ -288,6 +291,7 @@ Public Keycloak access policy:
 - Strip inbound spoofable identity headers before proxying to `tasks-api`.
 - Do not forward the client bearer token to `tasks-api` unless there is a specific backend requirement.
 - Inject the trusted headers defined in this plan after successful token validation.
+- Treat the `tasks` MCP route as the first concrete instance of a reusable MCP policy pattern. Future MCP resources should reuse strict MCP auth, issuer/JWKS validation, audience validation, `/mcp-users`, spoofed-header stripping, and no bearer-token forwarding, but each resource still needs its own exact metadata paths, resource URI, audience, backend target, and app route match.
 
 ## Compose Layout
 
@@ -299,22 +303,29 @@ Required files:
 - `.env.example`
 - `caddy/Caddyfile`
 - `oauth2-proxy/oauth2-proxy.cfg`
-- `agentgateway/config.yaml`
+- `agentgateway/config.yaml.tmpl`
+- `agentgateway/bootstrap.sh`
+- `postgres/bootstrap.sh`
+- `keycloak/bootstrap.sh`
+- `keycloak/healthcheck.sh`
 - `README.md`
 
 Optional files:
 
 - `keycloak/realm-export.json` if using import/export.
-- `apps/tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
+- `tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
 
 Required services:
 
 - `caddy`: the only service publishing host ports, attached to `edge`, `auth`, and `tasks`.
 - `keycloak`: attached to `auth` and `auth-db`, no host ports.
-- `keycloak-postgres`: attached only to `auth-db`, no host ports.
+- `postgres`: attached to `auth-db` and `tasks-db`, no host ports. Shared Postgres service with separate Keycloak and tasks databases/users; tasks-api user/database bootstrapped by `postgres-bootstrap`.
+- `postgres-bootstrap`: attached to `auth-db`, no host ports, idempotently creates the tasks database/user after Postgres is healthy.
+- `keycloak-bootstrap`: attached to `auth`, no host ports, idempotently creates the homelab realm, baseline groups, OIDC clients, and protocol mappers after Keycloak is healthy.
 - `oauth2-proxy`: attached to `auth` and `auth-session`, no host ports.
 - `agentgateway`: attached to `tasks` and `auth` so it can reach Keycloak metadata/JWKS, no host ports.
-- `tasks-api`: attached only to `tasks`, no host ports.
+- `agentgateway-bootstrap`: uses `network_mode: none`, no host ports, and renders `agentgateway/config.yaml.tmpl` into the `agentgateway_config` volume without external network/package access.
+- `tasks-api`: attached to `tasks` and `tasks-db`, no host ports.
 - `tasks-web`: attached only to `tasks`, no host ports, only if using a container frontend instead of CDN/static origin.
 - `redis`: attached only to `auth-session`, no host ports.
 
@@ -322,18 +333,20 @@ Required persistent volumes:
 
 - Caddy `/data` and `/config` so ACME account material and certificates persist.
 - Keycloak Postgres data so realm, user, group, and client configuration persists.
+- agentgateway rendered config volume so `agentgateway-bootstrap` can generate `/etc/agentgateway/config.yaml` for the runtime container.
 - Redis persistence is optional for the first slice; losing Redis sessions only forces browser reauthentication.
 
 Required explicit networks:
 
 - `edge`: Caddy-facing public edge network.
 - `auth`: Caddy, oauth2-proxy, Keycloak, agentgateway.
-- `auth-db`: Keycloak and its Postgres only.
+- `auth-db`: Keycloak and Postgres only.
 - `auth-session`: oauth2-proxy and Redis only.
 - `tasks`: Caddy, agentgateway, `tasks-api`.
+- `tasks-db`: `tasks-api` and Postgres only.
 - `internal-gateway`: reserved for future service-to-service gateway path.
 
-Set networks explicitly on every service. Do not rely on Compose's implicit default network.
+Set networks explicitly on every networked service. Offline one-shot services such as `agentgateway-bootstrap` must use `network_mode: none`. Do not rely on Compose's implicit default network.
 
 If using Docker network aliases for internal issuer resolution, attach the `auth.${DOMAIN}` alias to Caddy on the `auth` network, not to Keycloak directly, so internal clients still traverse the same host/TLS/reverse-proxy behavior they use publicly.
 
@@ -344,6 +357,7 @@ Implement `tasks.${DOMAIN}`.
 Expected flows:
 
 - `GET https://tasks.${DOMAIN}/api/health` returns public health response from the private API.
+- Caddy strips `/api` for public health and normal browser API routes, so `/api/health` reaches `tasks-api` as `/health` and `/api/users/me` reaches `tasks-api` as `/users/me`.
 - `GET https://tasks.${DOMAIN}/` redirects unauthenticated browser users to oauth2-proxy/Keycloak login.
 - `GET https://tasks.${DOMAIN}/api` without valid browser/session auth returns `401/403`, not `302`.
 - `GET https://tasks.${DOMAIN}/api/something` without valid browser/session auth returns `401/403`, not `302`.
@@ -383,11 +397,11 @@ End-to-end flow verification must prove the three primary paths work and stay is
 
 ### Browser App To API Verification
 
-- Provide a protected diagnostic API route for the initial slice, for example `GET /api/whoami`, that returns the trusted identity headers received by `tasks-api` in a non-production-safe format or behind a debug flag.
-- From the logged-in browser app, call `GET /api/whoami` and confirm it reaches `tasks-api` with `X-Auth-Subject`, `X-Auth-Email`, `X-Auth-Groups`, `X-Auth-Name`, and `X-Auth-Preferred-Username` populated by the gateway.
+- Use the real protected user route for the initial slice, `GET /api/users/me`, which maps to `tasks-api` `/users/me` after Caddy strips `/api`.
+- From the logged-in browser app, call `GET /api/users/me` and confirm it reaches `tasks-api` with gateway-derived `X-User-ID`, `X-User-Name`, and `X-User-Email` populated from the trusted `X-Auth-*` contract.
 - Confirm the returned subject is the Keycloak `sub`, not a mutable username or email.
-- Confirm unauthenticated `GET /api/whoami` returns `401/403`, not a browser `302` login redirect.
-- Confirm a spoof attempt such as `curl -i -H 'X-Auth-Subject: attacker' https://tasks.${DOMAIN}/api/whoami` does not pass the spoofed value to `tasks-api`.
+- Confirm unauthenticated `GET /api/users/me` returns `401/403`, not a browser `302` login redirect.
+- Confirm a spoof attempt such as `curl -i -H 'X-Auth-Subject: attacker' https://tasks.${DOMAIN}/api/users/me` does not pass the spoofed value to `tasks-api`.
 - Confirm normal browser/API routes strip inbound `Authorization` unless an explicit bearer route is being tested.
 - Confirm unsafe methods from the browser app include valid same-origin `Origin` or `Referer` signals and succeed only when authenticated.
 - Confirm unsafe methods without same-origin `Origin` or `Referer` return `403` before hitting `tasks-api`.
@@ -447,9 +461,9 @@ End-to-end flow verification must prove the three primary paths work and stay is
 - Requests through Cloudflare from non-admin client IPs cannot access Keycloak admin paths even though their direct source is Cloudflare.
 - If origin firewalling is enabled, direct non-Cloudflare access to VPS ports `80` and `443` is blocked except explicit management networks.
 - Keycloak public exposure is limited to required OIDC/realm/resource paths; admin, health, and metrics paths are blocked or allowlisted.
-- DCR is disabled unless required, or enabled only with strict client registration policies.
+- DCR is either not enabled yet, or if enabled for Claude/ChatGPT MCP compatibility, is enabled only with strict client registration policies.
 - Backend service host ports are not published.
-- Every Compose service has explicit networks and no accidental shared default network is used.
+- Every networked Compose service has explicit networks, offline one-shot services use `network_mode: none`, and no accidental shared default network is used.
 - Caddy and Keycloak Postgres persistent volumes are configured.
 
 ## Deliverables

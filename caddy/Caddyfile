@@ -1,0 +1,214 @@
+{
+	email {$ACME_EMAIL}
+	servers {
+		trusted_proxies static {$CADDY_TRUSTED_PROXIES}
+		trusted_proxies_strict
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+}
+
+(strip_identity_headers) {
+	request_header -X-Auth-Subject
+	request_header -X-Auth-Email
+	request_header -X-Auth-Groups
+	request_header -X-Auth-Name
+	request_header -X-Auth-Preferred-Username
+	request_header -X-Forwarded-User
+	request_header -X-Forwarded-Email
+	request_header -X-Forwarded-Groups
+	request_header -X-Auth-Request-User
+	request_header -X-Auth-Request-Email
+	request_header -X-Auth-Request-Groups
+	request_header -X-Auth-Request-Preferred-Username
+	request_header -X-Auth-Request-Access-Token
+	request_header -X-User-ID
+	request_header -X-User-Name
+	request_header -X-User-Email
+}
+
+(proxy_headers) {
+	header_up Host {host}
+	header_up X-Forwarded-Proto https
+	header_up X-Forwarded-For {client_ip}
+	header_up X-Real-IP {client_ip}
+	header_up -Forwarded
+}
+
+(oauth2_auth_check) {
+	forward_auth oauth2-proxy:4180 {
+		uri /oauth2/auth
+		header_up X-Forwarded-Method {method}
+		header_up X-Forwarded-Uri {uri}
+		import proxy_headers
+		header_up -Authorization
+		copy_headers {
+			X-Auth-Request-User>X-Auth-Subject
+			X-Auth-Request-Email>X-Auth-Email
+			X-Auth-Request-Groups>X-Auth-Groups
+			X-Auth-Request-Preferred-Username>X-Auth-Preferred-Username
+		}
+	}
+}
+
+(oauth2_browser_auth_check) {
+	forward_auth oauth2-proxy:4180 {
+		uri /oauth2/auth
+		header_up X-Forwarded-Method {method}
+		header_up X-Forwarded-Uri {uri}
+		import proxy_headers
+		header_up -Authorization
+		copy_headers {
+			X-Auth-Request-User>X-Auth-Subject
+			X-Auth-Request-Email>X-Auth-Email
+			X-Auth-Request-Groups>X-Auth-Groups
+			X-Auth-Request-Preferred-Username>X-Auth-Preferred-Username
+		}
+		@unauthorized status 401
+		handle_response @unauthorized {
+			route {
+				header Location "/oauth2/start?rd=https://{host}{uri}"
+				respond "" 302
+			}
+		}
+	}
+}
+
+(require_tasks_group) {
+	respond @missing_tasks_group 403
+}
+
+auth.{$DOMAIN} {
+	{$CADDY_TLS_DIRECTIVE}
+
+	import strip_identity_headers
+
+	@keycloak_admin_allowed {
+		path /admin /admin/*
+		remote_ip {$KEYCLOAK_ADMIN_REMOTE_IP_RANGES}
+		client_ip {$KEYCLOAK_ADMIN_CLIENT_IP_RANGES}
+	}
+
+	handle @keycloak_admin_allowed {
+		reverse_proxy keycloak:8080 {
+			import proxy_headers
+		}
+	}
+
+	@keycloak_admin_blocked path /admin /admin/*
+	handle @keycloak_admin_blocked {
+		respond 403
+	}
+
+	@keycloak_management_blocked path /health /health/* /metrics /metrics/*
+	handle @keycloak_management_blocked {
+		respond 403
+	}
+
+	handle /.well-known/* {
+		reverse_proxy keycloak:8080 {
+			import proxy_headers
+		}
+	}
+
+	handle /realms/* {
+		reverse_proxy keycloak:8080 {
+			import proxy_headers
+		}
+	}
+
+	handle /resources/* {
+		reverse_proxy keycloak:8080 {
+			import proxy_headers
+		}
+	}
+
+	handle {
+		respond 404
+	}
+}
+
+tasks.{$DOMAIN} {
+	{$CADDY_TLS_DIRECTIVE}
+
+	import strip_identity_headers
+
+	@protected_resource_metadata path /.well-known/oauth-protected-resource/api/mcp
+	@authorization_server_metadata path /.well-known/oauth-authorization-server/api/mcp /.well-known/oauth-authorization-server/api/mcp/client-registration
+	@health {
+		method GET HEAD
+		path /api/health
+	}
+	@mcp path /api/mcp /api/mcp/*
+	@api path /api /api/*
+	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "https://tasks.{$DOMAIN}" || {header.Referer}.startsWith("https://tasks.{$DOMAIN}/"))`
+	@unsafe_bad_fetch_site `method('POST', 'PUT', 'PATCH', 'DELETE') && {header.Sec-Fetch-Site} == "cross-site"`
+	@missing_tasks_group {
+		not header_regexp tasks_group X-Auth-Groups `(^|.*, *)/tasks-users(,.*|$)`
+	}
+
+	route {
+		handle /oauth2/* {
+			reverse_proxy oauth2-proxy:4180 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+
+		handle @protected_resource_metadata {
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @authorization_server_metadata {
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @health {
+			uri strip_prefix /api
+			reverse_proxy tasks-api:8080 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+
+		handle @mcp {
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @api {
+			route {
+				respond @unsafe_cross_site 403
+				respond @unsafe_bad_fetch_site 403
+
+				import oauth2_auth_check
+				import require_tasks_group
+				request_header X-Auth-Name {header.X-Auth-Preferred-Username}
+
+				uri strip_prefix /api
+				reverse_proxy tasks-api:8080 {
+					import proxy_headers
+					header_up -Authorization
+					header_up X-User-ID {header.X-Auth-Subject}
+					header_up X-User-Name {header.X-Auth-Name}
+					header_up X-User-Email {header.X-Auth-Email}
+				}
+			}
+		}
+
+		handle {
+			import oauth2_browser_auth_check
+			import require_tasks_group
+			request_header X-Auth-Name {header.X-Auth-Preferred-Username}
+
+			reverse_proxy tasks-web:80 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+	}
+}

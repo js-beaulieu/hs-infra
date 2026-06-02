@@ -1,0 +1,9 @@
+.env
+.env.local
+certs/*.pem
+certs/*.key
+certs/*.crt
+certs/*.p12
+certs/*.jks
+!certs/.gitkeep
+agentgateway/config.yaml

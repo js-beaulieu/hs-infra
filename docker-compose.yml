@@ -1,0 +1,255 @@
+name: home-stack
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      CADDY_TLS_DIRECTIVE: ${CADDY_TLS_DIRECTIVE:-}
+      CADDY_TRUSTED_PROXIES: ${CADDY_TRUSTED_PROXIES}
+      KEYCLOAK_ADMIN_REMOTE_IP_RANGES: ${KEYCLOAK_ADMIN_REMOTE_IP_RANGES}
+      KEYCLOAK_ADMIN_CLIENT_IP_RANGES: ${KEYCLOAK_ADMIN_CLIENT_IP_RANGES}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      edge:
+      auth:
+        ipv4_address: 172.30.1.10
+        aliases:
+          - auth.${DOMAIN}
+      tasks:
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    restart: unless-stopped
+    command: ["start"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: ${KEYCLOAK_DB_NAME}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HOSTNAME: https://auth.${DOMAIN}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: ${KEYCLOAK_PROXY_TRUSTED_ADDRESSES}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
+    networks:
+      auth:
+      auth-db:
+    volumes:
+      - ./keycloak/healthcheck.sh:/healthcheck.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "sh /healthcheck.sh"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  keycloak-bootstrap:
+    image: quay.io/keycloak/keycloak:26.1
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    environment:
+      DOMAIN: ${DOMAIN}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET}
+      MCP_RESOURCE_URI: https://tasks.${DOMAIN}/api/mcp
+    volumes:
+      - ./keycloak/bootstrap.sh:/bootstrap.sh:ro
+    networks:
+      auth:
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      TASKS_DB_NAME: ${TASKS_DB_NAME}
+      TASKS_DB_USER: ${TASKS_DB_USER}
+      TASKS_DB_PASSWORD: ${TASKS_DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      auth-db:
+      tasks-db:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres-bootstrap:
+    image: postgres:17-alpine
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER}
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      TASKS_DB_NAME: ${TASKS_DB_NAME}
+      TASKS_DB_USER: ${TASKS_DB_USER}
+      TASKS_DB_PASSWORD: ${TASKS_DB_PASSWORD}
+    volumes:
+      - ./postgres/bootstrap.sh:/bootstrap.sh:ro
+    networks:
+      auth-db:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      auth-session:
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.1
+    restart: unless-stopped
+    command: ["--config", "/etc/oauth2-proxy/oauth2-proxy.cfg"]
+    environment:
+      OAUTH2_PROXY_CLIENT_ID: oauth2-proxy-tasks
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET}
+      OAUTH2_PROXY_REDIRECT_URL: https://tasks.${DOMAIN}/oauth2/callback
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://auth.${DOMAIN}/realms/homelab
+      OAUTH2_PROXY_PROVIDER_CA_FILES: ${OAUTH2_PROXY_PROVIDER_CA_FILES:-}
+      OAUTH2_PROXY_TRUSTED_PROXY_IPS: ${OAUTH2_PROXY_TRUSTED_PROXY_IPS}
+      OAUTH2_PROXY_WHITELIST_DOMAINS: tasks.${DOMAIN}
+    volumes:
+      - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+      - ./certs:/certs:ro
+    extra_hosts:
+      - auth.${DOMAIN}:172.30.1.10
+    networks:
+      auth:
+      auth-session:
+    depends_on:
+      redis:
+        condition: service_started
+      keycloak-bootstrap:
+        condition: service_completed_successfully
+
+  agentgateway:
+    image: cr.agentgateway.dev/agentgateway:v1.2.1
+    restart: unless-stopped
+    command: ["-f", "/etc/agentgateway/config.yaml"]
+    environment:
+      SSL_CERT_FILE: ${AGENTGATEWAY_SSL_CERT_FILE:-}
+    volumes:
+      - agentgateway_config:/etc/agentgateway:ro
+      - ./certs:/certs:ro
+    extra_hosts:
+      - auth.${DOMAIN}:172.30.1.10
+    networks:
+      auth:
+      tasks:
+    depends_on:
+      agentgateway-bootstrap:
+        condition: service_completed_successfully
+      keycloak-bootstrap:
+        condition: service_completed_successfully
+      tasks-api:
+        condition: service_started
+
+  agentgateway-bootstrap:
+    image: alpine:3.20
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    environment:
+      AGENTGATEWAY_ISSUER: https://auth.${DOMAIN}/realms/homelab
+      AGENTGATEWAY_JWKS_URL: https://auth.${DOMAIN}/realms/homelab/protocol/openid-connect/certs
+      MCP_RESOURCE_URI: https://tasks.${DOMAIN}/api/mcp
+      AGENTGATEWAY_CONFIG_TMPL: /etc/agentgateway/config.yaml.tmpl
+      AGENTGATEWAY_CONFIG_OUT: /etc/agentgateway/config.yaml
+    volumes:
+      - ./agentgateway/config.yaml.tmpl:/etc/agentgateway/config.yaml.tmpl:ro
+      - ./agentgateway/bootstrap.sh:/bootstrap.sh:ro
+      - agentgateway_config:/etc/agentgateway
+    network_mode: none
+
+  tasks-api:
+    image: ghcr.io/js-beaulieu/tasks-api:latest
+    restart: unless-stopped
+    environment:
+      PG_CONNECTION_STRING: postgres://${TASKS_DB_USER}:${TASKS_DB_PASSWORD}@postgres:5432/${TASKS_DB_NAME}?sslmode=disable
+      PORT: 8080
+    networks:
+      tasks-db:
+      tasks:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
+
+  tasks-web:
+    image: nginx:1-alpine
+    restart: unless-stopped
+    volumes:
+      - ./tasks-web:/usr/share/nginx/html:ro
+    networks:
+      tasks:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  agentgateway_config:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  auth:
+    ipam:
+      config:
+        - subnet: 172.30.1.0/24
+  auth-db:
+    ipam:
+      config:
+        - subnet: 172.30.2.0/24
+  auth-session:
+    ipam:
+      config:
+        - subnet: 172.30.3.0/24
+  tasks:
+    ipam:
+      config:
+        - subnet: 172.30.4.0/24
+  tasks-db:
+    ipam:
+      config:
+        - subnet: 172.30.5.0/24
+  internal-gateway:
+    ipam:
+      config:
+        - subnet: 172.30.6.0/24
