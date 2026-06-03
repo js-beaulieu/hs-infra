@@ -19,7 +19,7 @@ binds:
                   exact: /.well-known/oauth-authorization-server/api/mcp/client-registration
             policies:
               mcpAuthentication:
-                mode: strict
+                mode: permissive
                 issuer: "${AGENTGATEWAY_ISSUER}"
                 audiences:
                   - "${MCP_RESOURCE_URI}"
