@@ -7,3 +7,5 @@ certs/*.p12
 certs/*.jks
 !certs/.gitkeep
 agentgateway/config.yaml
+node_modules/
+test-results/
