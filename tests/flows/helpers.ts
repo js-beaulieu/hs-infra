@@ -27,7 +27,7 @@ export async function loginAndReturn(page: Page, targetUrl: string): Promise<voi
 
 export async function getOauth2ProxyCookie(context: BrowserContext): Promise<string | undefined> {
   const cookies = await context.cookies();
-  const cookie = cookies.find((c) => c.name === '__Host-oauth2_proxy');
+  const cookie = cookies.find((c) => c.name === '__Secure-oauth2_proxy');
   return cookie ? `${cookie.name}=${cookie.value}` : undefined;
 }
 

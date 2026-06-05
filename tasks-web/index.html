@@ -16,7 +16,7 @@
   <body>
     <main>
       <h1>Tasks is behind SSO.</h1>
-      <p>This static placeholder is served by <code>tasks-web</code>. API traffic is private on <code>/api</code>, MCP traffic is isolated on <code>/api/mcp</code>, and neither route is served by this web container.</p>
+      <p>This static placeholder is served by <code>tasks-web</code>. API traffic is on <code>https://api.tasks.${DOMAIN}</code>. MCP is on <code>/mcp</code>. This is a local placeholder; production frontends should be a CDN/static origin that points at the same API host.</p>
     </main>
   </body>
 </html>

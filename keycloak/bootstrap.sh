@@ -74,8 +74,8 @@ cat >/tmp/oauth2-proxy-client.json <<JSON
   "directAccessGrantsEnabled": false,
   "implicitFlowEnabled": false,
   "secret": "$OAUTH2_PROXY_CLIENT_SECRET",
-  "redirectUris": ["https://tasks.$DOMAIN/oauth2/callback"],
-  "webOrigins": ["https://tasks.$DOMAIN"],
+  "redirectUris": ["https://tasks.$DOMAIN/oauth2/callback", "https://api.tasks.$DOMAIN/oauth2/callback"],
+  "webOrigins": ["https://tasks.$DOMAIN", "https://api.tasks.$DOMAIN"],
   "attributes": {
     "pkce.code.challenge.method": "S256"
   }
@@ -91,7 +91,7 @@ cat >/tmp/tasks-mcp-client.json <<JSON
   "standardFlowEnabled": true,
   "directAccessGrantsEnabled": false,
   "implicitFlowEnabled": false,
-  "redirectUris": ["http://localhost:7777/callback", "http://localhost:*/*", "https://tasks.$DOMAIN/*"],
+  "redirectUris": ["http://localhost:7777/callback", "http://localhost:*/*", "https://tasks.$DOMAIN/*", "https://api.tasks.$DOMAIN/*"],
   "webOrigins": ["+"],
   "attributes": {
     "pkce.code.challenge.method": "S256"

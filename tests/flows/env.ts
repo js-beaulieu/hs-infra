@@ -1,9 +1,18 @@
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 import * as path from 'path';
 
 const envFileRaw = process.env['FLOW_TEST_ENV_FILE'] || path.resolve(__dirname, 'current.env');
 const envPath = path.resolve(envFileRaw);
 dotenv.config({ path: envPath, override: true });
+
+const generatedUsersPath = path.resolve(__dirname, '.generated-users.json');
+const generatedUsers = fs.existsSync(generatedUsersPath)
+  ? JSON.parse(fs.readFileSync(generatedUsersPath, 'utf-8')) as {
+      testUser?: { username?: string; password?: string };
+      deniedUser?: { username?: string; password?: string };
+    }
+  : {};
 
 function requireVar(name: string): string {
   const v = process.env[name];
@@ -17,10 +26,10 @@ export const MCP_RESOURCE = requireVar('MCP_RESOURCE');
 export const MCP_METADATA = requireVar('MCP_METADATA');
 export const OAUTH2_BASE = requireVar('OAUTH2_BASE');
 
-export const TEST_USER_USERNAME = process.env['TEST_USER_USERNAME'] || '';
-export const TEST_USER_PASSWORD = process.env['TEST_USER_PASSWORD'] || '';
-export const TEST_DENIED_USER_USERNAME = process.env['TEST_DENIED_USER_USERNAME'] || '';
-export const TEST_DENIED_USER_PASSWORD = process.env['TEST_DENIED_USER_PASSWORD'] || '';
+export const TEST_USER_USERNAME = generatedUsers.testUser?.username || process.env['TEST_USER_USERNAME'] || '';
+export const TEST_USER_PASSWORD = generatedUsers.testUser?.password || process.env['TEST_USER_PASSWORD'] || '';
+export const TEST_DENIED_USER_USERNAME = generatedUsers.deniedUser?.username || process.env['TEST_DENIED_USER_USERNAME'] || '';
+export const TEST_DENIED_USER_PASSWORD = generatedUsers.deniedUser?.password || process.env['TEST_DENIED_USER_PASSWORD'] || '';
 
 export const MCP_TOKEN_VALID = process.env['MCP_TOKEN_VALID'] || '';
 export const MCP_TOKEN_WRONG_AUD = process.env['MCP_TOKEN_WRONG_AUD'] || '';

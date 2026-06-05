@@ -54,13 +54,22 @@ test.describe('api flow', () => {
         'Access-Control-Request-Method': 'POST',
       },
     });
-    // Current Caddy may return 401 before CORS headers if OPTIONS hits auth check first.
-    // Accept 200/204 (with CORS) or 401 (auth check runs first).
-    expect([200, 204, 401, 403]).toContain(res.status());
-    if (res.status() === 200 || res.status() === 204) {
-      const allowedOrigin = res.headers()['access-control-allow-origin'];
-      expect(allowedOrigin).toBe(WEB_ORIGIN);
-    }
+    expect([200, 204]).toContain(res.status());
+    expect(res.headers()['access-control-allow-origin']).toBe(WEB_ORIGIN);
+    expect(res.headers()['access-control-allow-credentials']).toBe('true');
+    expect(res.headers()['access-control-allow-methods']).toContain('POST');
+    expect(res.headers()['access-control-allow-headers'] || '').toContain('Content-Type');
+  });
+
+  test('API responses from allowed origin include credentialed CORS headers', async ({ request }) => {
+    const res = await request.get(`${API_BASE}/users/me`, {
+      headers: {
+        Origin: WEB_ORIGIN,
+      },
+    });
+    ensureNoAuthRedirect(res);
+    expect(res.headers()['access-control-allow-origin']).toBe(WEB_ORIGIN);
+    expect(res.headers()['access-control-allow-credentials']).toBe('true');
   });
 
   test('OPTIONS preflight from untrusted origin is rejected or not permissive', async ({ request }) => {

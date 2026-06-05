@@ -1,4 +1,5 @@
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
@@ -12,6 +13,7 @@ const KEYCLOAK_CONTAINER = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack
 const REALM = 'homelab';
 const KC = '/opt/keycloak/bin/kcadm.sh';
 const SERVER = 'http://keycloak:8080';
+const generatedUsersPath = path.resolve(__dirname, '.generated-users.json');
 
 function kcExec(cmd: string): string {
   const script = [
@@ -27,19 +29,9 @@ function kcExec(cmd: string): string {
 }
 
 function createUser(username: string, password: string, email: string): string {
-  try {
-    const out = kcExec(
-      `"${KC}" get users -r "${REALM}" -q username="${username}" --fields id --format csv --noquotes 2>/dev/null | tail -n 1 || true`
-    ).trim();
-    if (out) {
-      console.log(`User ${username} already exists (${out})`);
-      return out;
-    }
-  } catch { /* ignore */ }
-
   console.log(`Creating user ${username}`);
   kcExec(
-    `"${KC}" create users -r "${REALM}" -s username="${username}" -s enabled=true -s email="${email}" -s firstName="Test" -s lastName="User"`
+    `"${KC}" create users -r "${REALM}" -s username="${username}" -s enabled=true -s email="${email}" -s emailVerified=true -s firstName="Flow" -s lastName="Test"`
   );
   const uid = kcExec(
     `"${KC}" get users -r "${REALM}" -q username="${username}" --fields id --format csv --noquotes | tail -n 1`
@@ -96,10 +88,12 @@ async function globalSetup() {
     }
   }
 
-  const testUser = process.env['TEST_USER_USERNAME'] || 'testuser';
+  const runId = `${Date.now()}-${process.pid}`;
+  const userPrefix = process.env['TEST_USER_PREFIX'] || 'flowtest';
+  const testUser = `${userPrefix}-allowed-${runId}`;
+  const deniedUser = `${userPrefix}-denied-${runId}`;
   const testPass = process.env['TEST_USER_PASSWORD'] || 'ChangeMe123';
-  const deniedUser = process.env['TEST_DENIED_USER_USERNAME'] || 'denieduser';
-  const deniedPass = process.env['TEST_DENIED_USER_PASSWORD'] || 'ChangeMe123';
+  const deniedPass = process.env['TEST_DENIED_USER_PASSWORD'] || testPass;
 
   createUser(testUser, testPass, `${testUser}@example.com`);
   createUser(deniedUser, deniedPass, `${deniedUser}@example.com`);
@@ -109,6 +103,11 @@ async function globalSetup() {
 
   joinGroups(deniedUser, ['homelab-users']);
   leaveGroups(deniedUser, ['tasks-users', 'mcp-users']);
+
+  fs.writeFileSync(generatedUsersPath, JSON.stringify({
+    testUser: { username: testUser, password: testPass },
+    deniedUser: { username: deniedUser, password: deniedPass },
+  }, null, 2));
 }
 
 export default globalSetup;

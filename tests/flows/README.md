@@ -6,12 +6,14 @@ These Playwright tests validate the current (pre-migration) and migrated (post-m
 
 1. The Docker Compose stack must be running and healthy.
 2. Keycloak must be bootstrapped with the realm, groups, and clients.
-3. Test users must exist in Keycloak and be assigned to the correct groups.
+3. The flow env file must include Keycloak admin credentials so setup can create and verify temporary test users.
 
 ## Test Users
 
-- **Allowed user**: A Keycloak user in both `/homelab-users` and `/tasks-users`. Used for browser login and API tests.
-- **Denied user**: A Keycloak user in `/homelab-users` but **not** in `/tasks-users`. Used to verify that group enforcement blocks access after authentication.
+- **Allowed user**: Created automatically with verified email and membership in `/homelab-users` and `/tasks-users`. Used for browser login and API tests.
+- **Denied user**: Created automatically with verified email and membership in `/homelab-users` only. Used to verify that group enforcement blocks access after authentication.
+
+Setup writes generated credentials to `tests/flows/.generated-users.json`; teardown deletes those users and removes that file. `TEST_USER_PREFIX`, `TEST_USER_PASSWORD`, and `TEST_DENIED_USER_PASSWORD` may be set in the env file to customize generated users.
 
 ## Tokens
 
@@ -30,7 +32,7 @@ If tokens are not provided, those specific MCP token tests are skipped.
 
 ```sh
 cp tests/flows/current.env.example tests/flows/current.env
-# Edit tests/flows/current.env with real credentials and tokens
+# Edit tests/flows/current.env with Keycloak admin credentials and optional tokens
 scripts/run-flow-tests.sh tests/flows/current.env
 ```
 
@@ -38,7 +40,7 @@ scripts/run-flow-tests.sh tests/flows/current.env
 
 ```sh
 cp tests/flows/migrated.env.example tests/flows/migrated.env
-# Edit tests/flows/migrated.env with real credentials and tokens
+# Edit tests/flows/migrated.env with Keycloak admin credentials and optional tokens
 scripts/run-flow-tests.sh tests/flows/migrated.env
 ```
 

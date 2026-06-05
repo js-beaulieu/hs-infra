@@ -73,6 +73,14 @@
 	}
 }
 
+(cors_tasks_origin) {
+	header Access-Control-Allow-Origin "https://tasks.{$DOMAIN}"
+	header Access-Control-Allow-Credentials "true"
+	header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+	header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With"
+	header Vary "Origin"
+}
+
 (require_tasks_group) {
 	respond @missing_tasks_group 403
 }
@@ -127,6 +135,105 @@ auth.{$DOMAIN} {
 	}
 }
 
+api.tasks.{$DOMAIN} {
+	{$CADDY_TLS_DIRECTIVE}
+
+	import strip_identity_headers
+
+	@protected_resource_metadata path /.well-known/oauth-protected-resource/mcp
+	@authorization_server_metadata path /.well-known/oauth-authorization-server/mcp /.well-known/oauth-authorization-server/mcp/client-registration
+
+	@health {
+		method GET HEAD
+		path /health
+	}
+
+	@mcp path /mcp /mcp/*
+
+	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "https://tasks.{$DOMAIN}" || {header.Referer}.startsWith("https://tasks.{$DOMAIN}/"))`
+	@unsafe_bad_fetch_site `method('POST', 'PUT', 'PATCH', 'DELETE') && {header.Sec-Fetch-Site} == "cross-site"`
+
+	@missing_tasks_group {
+		not header_regexp tasks_group X-Auth-Groups `(^|.*, *)/tasks-users(,.*|$)`
+	}
+
+	@cors_origin header Origin https://tasks.{$DOMAIN}
+	@preflight_allowed {
+		method OPTIONS
+		header Origin https://tasks.{$DOMAIN}
+	}
+	@preflight method OPTIONS
+
+	header @cors_origin {
+		Access-Control-Allow-Origin "https://tasks.{$DOMAIN}"
+		Access-Control-Allow-Credentials "true"
+		Vary "Origin"
+	}
+
+	route {
+		handle /oauth2/* {
+			reverse_proxy oauth2-proxy:4180 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+
+		handle @protected_resource_metadata {
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @authorization_server_metadata {
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @health {
+			reverse_proxy tasks-api:8080 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+
+		handle @mcp {
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @preflight_allowed {
+			import cors_tasks_origin
+			respond "" 204
+		}
+
+		handle @preflight {
+			respond 403
+		}
+
+		# API catch-all
+		handle {
+			route {
+				respond @unsafe_cross_site 403
+				respond @unsafe_bad_fetch_site 403
+
+				import oauth2_auth_check
+				import require_tasks_group
+				request_header X-Auth-Name {header.X-Auth-Preferred-Username}
+
+				reverse_proxy tasks-api:8080 {
+					import proxy_headers
+					header_up -Authorization
+					header_up X-User-ID {header.X-Auth-Subject}
+					header_up X-User-Name {header.X-Auth-Name}
+					header_up X-User-Email {header.X-Auth-Email}
+				}
+			}
+		}
+	}
+}
+
 tasks.{$DOMAIN} {
 	{$CADDY_TLS_DIRECTIVE}
 
@@ -142,8 +249,24 @@ tasks.{$DOMAIN} {
 	@api path /api /api/*
 	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "https://tasks.{$DOMAIN}" || {header.Referer}.startsWith("https://tasks.{$DOMAIN}/"))`
 	@unsafe_bad_fetch_site `method('POST', 'PUT', 'PATCH', 'DELETE') && {header.Sec-Fetch-Site} == "cross-site"`
+	@cors_origin header Origin https://tasks.{$DOMAIN}
+	@preflight_allowed {
+		method OPTIONS
+		path /api /api/*
+		header Origin https://tasks.{$DOMAIN}
+	}
+	@preflight {
+		method OPTIONS
+		path /api /api/*
+	}
 	@missing_tasks_group {
 		not header_regexp tasks_group X-Auth-Groups `(^|.*, *)/tasks-users(,.*|$)`
+	}
+
+	header @cors_origin {
+		Access-Control-Allow-Origin "https://tasks.{$DOMAIN}"
+		Access-Control-Allow-Credentials "true"
+		Vary "Origin"
 	}
 
 	route {
@@ -178,6 +301,15 @@ tasks.{$DOMAIN} {
 			reverse_proxy agentgateway:3000 {
 				import proxy_headers
 			}
+		}
+
+		handle @preflight_allowed {
+			import cors_tasks_origin
+			respond "" 204
+		}
+
+		handle @preflight {
+			respond 403
 		}
 
 		handle @api {

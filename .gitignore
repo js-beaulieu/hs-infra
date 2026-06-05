@@ -9,3 +9,5 @@ certs/*.jks
 agentgateway/config.yaml
 node_modules/
 test-results/
+tests/flows/*.env
+tests/flows/.generated-users.json

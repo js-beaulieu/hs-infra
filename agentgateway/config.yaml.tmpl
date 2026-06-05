@@ -9,7 +9,7 @@ binds:
           # First concrete MCP resource. Future MCP resources should reuse this
           # policy shape, but each resource still needs exact metadata paths,
           # audience, resource URI, backend, and app-specific route matches.
-          - name: tasks-mcp-metadata
+          - name: tasks-mcp-metadata-old
             matches:
               - path:
                   exact: /.well-known/oauth-protected-resource/api/mcp
@@ -44,12 +44,115 @@ binds:
                       mcp:
                         host: http://tasks-api:8080/api/mcp
 
-          - name: tasks-mcp
+          - name: tasks-mcp-metadata
+            matches:
+              - path:
+                  exact: /.well-known/oauth-protected-resource/mcp
+              - path:
+                  exact: /.well-known/oauth-authorization-server/mcp
+              - path:
+                  exact: /.well-known/oauth-authorization-server/mcp/client-registration
+            policies:
+              mcpAuthentication:
+                mode: permissive
+                issuer: "${AGENTGATEWAY_ISSUER}"
+                audiences:
+                  - "${MCP_RESOURCE_URI}"
+                jwks:
+                  url: "${AGENTGATEWAY_JWKS_URL}"
+                provider:
+                  keycloak: {}
+                resourceMetadata:
+                  resource: "${MCP_RESOURCE_URI}"
+                  authorizationServers:
+                    - "${AGENTGATEWAY_ISSUER}"
+                  scopesSupported:
+                    - openid
+                    - profile
+                    - email
+                  bearerMethodsSupported:
+                    - header
+            backends:
+              - mcp:
+                  targets:
+                    - name: tasks-api
+                      mcp:
+                        host: http://tasks-api:8080/api/mcp
+
+          - name: tasks-mcp-old
             matches:
               - path:
                   exact: /api/mcp
               - path:
                   pathPrefix: /api/mcp/
+            policies:
+              mcpAuthentication:
+                mode: strict
+                issuer: "${AGENTGATEWAY_ISSUER}"
+                audiences:
+                  - "${MCP_RESOURCE_URI}"
+                jwks:
+                  url: "${AGENTGATEWAY_JWKS_URL}"
+                provider:
+                  keycloak: {}
+                resourceMetadata:
+                  resource: "${MCP_RESOURCE_URI}"
+                  authorizationServers:
+                    - "${AGENTGATEWAY_ISSUER}"
+                  scopesSupported:
+                    - openid
+                    - profile
+                    - email
+                  bearerMethodsSupported:
+                    - header
+              authorization:
+                rules:
+                  - require: 'has(jwt.aud) && jwt.aud.contains("${MCP_RESOURCE_URI}")'
+                  - require: 'has(jwt.groups) && jwt.groups.contains("/mcp-users")'
+              requestHeaderModifier:
+                remove:
+                  - authorization
+                  - x-auth-subject
+                  - x-auth-email
+                  - x-auth-groups
+                  - x-auth-name
+                  - x-auth-preferred-username
+                  - x-forwarded-user
+                  - x-forwarded-email
+                  - x-forwarded-groups
+                  - x-auth-request-user
+                  - x-auth-request-email
+                  - x-auth-request-groups
+                  - x-auth-request-preferred-username
+                  - x-auth-request-access-token
+                  - x-user-id
+                  - x-user-name
+                  - x-user-email
+            backends:
+              - mcp:
+                  targets:
+                    - name: tasks-api
+                      policies:
+                        transformations:
+                          request:
+                            set:
+                              x-auth-subject: jwt.sub
+                              x-auth-email: 'default(jwt.email, "")'
+                              x-auth-groups: 'has(jwt.groups) ? jwt.groups.join(",") : ""'
+                              x-auth-name: 'coalesce(jwt.preferred_username, jwt.name, "")'
+                              x-auth-preferred-username: 'default(jwt.preferred_username, "")'
+                              x-user-id: jwt.sub
+                              x-user-email: 'default(jwt.email, "")'
+                              x-user-name: 'coalesce(jwt.preferred_username, jwt.name, "")'
+                      mcp:
+                        host: http://tasks-api:8080/api/mcp
+
+          - name: tasks-mcp
+            matches:
+              - path:
+                  exact: /mcp
+              - path:
+                  pathPrefix: /mcp/
             policies:
               mcpAuthentication:
                 mode: strict

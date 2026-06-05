@@ -55,8 +55,8 @@ test.describe('app login flow', () => {
     await performKeycloakLogin(page, TEST_USER_USERNAME, TEST_USER_PASSWORD);
     await page.waitForURL(WEB_ORIGIN + '/', { timeout: 15000 });
     const cookies = await context.cookies(WEB_ORIGIN);
-    const proxyCookie = cookies.find((c) => c.name === '__Host-oauth2_proxy');
-    expect(proxyCookie, '__Host-oauth2_proxy cookie should exist').toBeTruthy();
+    const proxyCookie = cookies.find((c) => c.name === '__Secure-oauth2_proxy');
+    expect(proxyCookie, '__Secure-oauth2_proxy cookie should exist').toBeTruthy();
     expectCookieSecureHttpOnly(proxyCookie!);
     await context.close();
   });
@@ -89,7 +89,7 @@ test.describe('app login flow', () => {
     await loginPage.waitForURL(WEB_ORIGIN + '/', { timeout: 30000 });
 
     const cookies = await loginContext.cookies(WEB_ORIGIN);
-    const proxyCookie = cookies.find((c) => c.name === '__Host-oauth2_proxy');
+    const proxyCookie = cookies.find((c) => c.name === '__Secure-oauth2_proxy');
     test.skip(!proxyCookie, 'No cookie to tamper with');
 
     // Step 2: Create a clean context with only the TAMPERED cookie—no SSO cookies
