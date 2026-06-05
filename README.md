@@ -132,6 +132,8 @@ Future external API clients should get explicit bearer-auth routes, separate hos
 - Public client `tasks-mcp` for initial local MCP testing.
 - Group claim mappers and audience mappers.
 
+The realm default access-token lifespan is set from `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` and defaults to one year. This intentionally gives dynamically registered MCP clients a long `expires_in` value, avoiding known MCP client re-authentication bugs when short-lived or missing-expiry OAuth tokens age out. The `oauth2-proxy-tasks` client is explicitly pinned back to `OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS` (default five minutes), so browser/API auth does not inherit the long MCP/DCR lifetime.
+
 Create users in Keycloak and assign groups before testing login.
 
 ## MCP Status
@@ -148,7 +150,7 @@ The protected-resource metadata route is:
 https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
 ```
 
-MCP access tokens must include audience `https://api.tasks.${DOMAIN}/mcp` and group `/mcp-users`. The external `/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint at `/api/mcp`. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required. Validate full MCP initialize/session behavior with Claude, ChatGPT custom MCPs, or an MCP inspector.
+MCP access tokens must include audience `https://api.tasks.${DOMAIN}/mcp` and group `/mcp-users`. They also default to a long one-year `expires_in` via `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` for compatibility with MCP clients that mishandle token refresh or expired-token re-auth. The external `/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint at `/api/mcp`. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required. Validate full MCP initialize/session behavior with Claude, ChatGPT custom MCPs, or an MCP inspector.
 
 The MCP auth policy pattern is intended for all MCP resources, including future apps. Each MCP resource still needs its own exact OAuth protected-resource metadata path, `resource` URI, token audience, backend target, and any app-specific route match. Keep the shared requirements the same unless deliberately changed: strict MCP auth, issuer/JWKS validation, audience validation, `/mcp-users`, spoofed-header stripping, and no bearer-token forwarding to app APIs.
 

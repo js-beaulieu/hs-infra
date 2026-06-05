@@ -84,6 +84,8 @@ export async function startTestcontainersStack() {
     PUBLIC_WEB_ORIGIN: webOrigin,
     PUBLIC_API_ORIGIN: apiOrigin,
     MCP_RESOURCE_URI: mcpResource,
+    MCP_ACCESS_TOKEN_LIFESPAN_SECONDS: process.env['MCP_ACCESS_TOKEN_LIFESPAN_SECONDS'] || '31536000',
+    OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS: process.env['OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS'] || '300',
     CADDY_HTTP_PORT: String(httpPort),
     CADDY_HTTPS_PORT: String(httpsPort),
     ACME_EMAIL: 'test@example.invalid',
@@ -133,6 +135,7 @@ export async function startTestcontainersStack() {
     TEST_DENIED_USER_PASSWORD: process.env['TEST_DENIED_USER_PASSWORD'] || process.env['TEST_USER_PASSWORD'] || 'ChangeMe123',
     MCP_TOKEN_VALID: process.env['MCP_TOKEN_VALID'] || '',
     MCP_TOKEN_WRONG_AUD: process.env['MCP_TOKEN_WRONG_AUD'] || '',
+    MCP_TOKEN_EXPIRED: process.env['MCP_TOKEN_EXPIRED'] || '',
     MCP_TOKEN_MISSING_GROUP: process.env['MCP_TOKEN_MISSING_GROUP'] || '',
   });
 

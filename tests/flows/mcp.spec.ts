@@ -6,6 +6,7 @@ import {
   MCP_DCR,
   MCP_TOKEN_VALID,
   MCP_TOKEN_WRONG_AUD,
+  MCP_TOKEN_EXPIRED,
   MCP_TOKEN_MISSING_GROUP,
 } from './env';
 
@@ -134,8 +135,18 @@ test.describe('mcp flow', () => {
       expect(res.status()).toBe(401);
     });
 
-    // NOTE: agentgateway v1.2.1 connect-time auth does not check JWT exp claim.
-    // An "expired token returns 401" test should be added once agentgateway enforces expiry.
+    test('expired token returns 401', async ({ request }) => {
+      test.skip(!MCP_TOKEN_EXPIRED, 'MCP_TOKEN_EXPIRED not configured');
+      const res = await request.get(`${MCP_RESOURCE}`, {
+        headers: {
+          Authorization: `Bearer ${MCP_TOKEN_EXPIRED}`,
+          Accept: MCP_GET_ACCEPT,
+        },
+      });
+      expect(res.status()).toBe(401);
+      const wwwAuth = res.headers()['www-authenticate'];
+      expect(wwwAuth).toBeTruthy();
+    });
 
     test('valid token missing /mcp-users group returns 403', async ({ request }) => {
       test.skip(!MCP_TOKEN_MISSING_GROUP, 'MCP_TOKEN_MISSING_GROUP not configured');

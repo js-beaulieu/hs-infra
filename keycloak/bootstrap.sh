@@ -20,6 +20,21 @@ require_json_string_safe DOMAIN "$DOMAIN"
 require_json_string_safe OAUTH2_PROXY_CLIENT_SECRET "$OAUTH2_PROXY_CLIENT_SECRET"
 require_json_string_safe MCP_RESOURCE_URI "$MCP_RESOURCE_URI"
 
+MCP_ACCESS_TOKEN_LIFESPAN_SECONDS=${MCP_ACCESS_TOKEN_LIFESPAN_SECONDS:-31536000}
+OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS=${OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS:-300}
+case "$MCP_ACCESS_TOKEN_LIFESPAN_SECONDS" in
+  ''|*[!0-9]*)
+    echo "MCP_ACCESS_TOKEN_LIFESPAN_SECONDS must be an integer number of seconds"
+    exit 1
+    ;;
+esac
+case "$OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS" in
+  ''|*[!0-9]*)
+    echo "OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS must be an integer number of seconds"
+    exit 1
+    ;;
+esac
+
 PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN:-https://tasks.$DOMAIN}
 PUBLIC_API_ORIGIN=${PUBLIC_API_ORIGIN:-https://api.tasks.$DOMAIN}
 require_json_string_safe PUBLIC_WEB_ORIGIN "$PUBLIC_WEB_ORIGIN"
@@ -31,7 +46,9 @@ if ! "$KC" config credentials --server "$SERVER" --realm master --user "$KEYCLOA
 fi
 
 if ! "$KC" get realms/$REALM >/dev/null 2>&1; then
-  "$KC" create realms -s realm=$REALM -s enabled=true -s registrationAllowed=false -s loginWithEmailAllowed=true -s duplicateEmailsAllowed=false
+  "$KC" create realms -s realm=$REALM -s enabled=true -s registrationAllowed=false -s loginWithEmailAllowed=true -s duplicateEmailsAllowed=false -s accessTokenLifespan="$MCP_ACCESS_TOKEN_LIFESPAN_SECONDS"
+else
+  "$KC" update realms/$REALM -s accessTokenLifespan="$MCP_ACCESS_TOKEN_LIFESPAN_SECONDS"
 fi
 
 for group in homelab-users tasks-users mcp-users mcp-writers; do
@@ -82,7 +99,8 @@ cat >/tmp/oauth2-proxy-client.json <<JSON
   "redirectUris": ["$PUBLIC_WEB_ORIGIN/oauth2/callback", "$PUBLIC_API_ORIGIN/oauth2/callback"],
   "webOrigins": ["$PUBLIC_WEB_ORIGIN", "$PUBLIC_API_ORIGIN"],
   "attributes": {
-    "pkce.code.challenge.method": "S256"
+    "pkce.code.challenge.method": "S256",
+    "access.token.lifespan": "$OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS"
   }
 }
 JSON
@@ -99,7 +117,8 @@ cat >/tmp/tasks-mcp-client.json <<JSON
   "redirectUris": ["http://localhost:7777/callback", "http://localhost:*/*", "$PUBLIC_WEB_ORIGIN/*", "$PUBLIC_API_ORIGIN/*"],
   "webOrigins": ["+"],
   "attributes": {
-    "pkce.code.challenge.method": "S256"
+    "pkce.code.challenge.method": "S256",
+    "access.token.lifespan": "$MCP_ACCESS_TOKEN_LIFESPAN_SECONDS"
   }
 }
 JSON

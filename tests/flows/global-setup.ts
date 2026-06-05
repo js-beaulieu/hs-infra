@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { startTestcontainersStack } from './testcontainers-stack';
-import { KEYCLOAK_ORIGIN } from './env';
 
 const envFileRaw = process.env['FLOW_TEST_ENV_FILE'] || path.resolve(__dirname, 'current.env');
 dotenv.config({ path: path.resolve(envFileRaw), override: true });
@@ -74,7 +73,7 @@ function leaveGroups(username: string, groups: string[]) {
   }
 }
 
-function createRopcClient(clientId: string, clientSecret: string, audience: string): string {
+function createRopcClient(clientId: string, clientSecret: string, audience: string, accessTokenLifespanSeconds?: number): string {
   const existingId = kcExec(
     `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1 || true`
   ).trim();
@@ -90,7 +89,7 @@ function createRopcClient(clientId: string, clientSecret: string, audience: stri
     serviceAccountsEnabled: false,
     implicitFlowEnabled: false,
     redirectUris: [],
-    attributes: {},
+    attributes: accessTokenLifespanSeconds ? { 'access.token.lifespan': String(accessTokenLifespanSeconds) } : {},
   });
   const tmpFile = `/tmp/mcp-test-client-${clientId}.json`;
   kcExec(`cat > ${tmpFile} <<'CLIENTJSON'\n${clientJson}\nCLIENTJSON\n"${KC}" create clients -r "${REALM}" -f "${tmpFile}"\nrm -f ${tmpFile}`);
@@ -171,7 +170,18 @@ function getToken(clientId: string, clientSecret: string, username: string, pass
   const body = `grant_type=password&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
   let result: string;
   const tokenUrl = process.env['KEYCLOAK_TOKEN_URL']
-    || (() => { try { return new URL('/realms/' + REALM + '/protocol/openid-connect/token', KEYCLOAK_ORIGIN).toString(); } catch { return ''; } })();
+    || (() => {
+      try {
+        const webOrigin = process.env['WEB_ORIGIN'] || 'https://tasks.home-stack.localhost';
+        const url = new URL(webOrigin);
+        const parts = url.hostname.split('.');
+        const domain = parts.slice(1).join('.');
+        const port = url.port ? `:${url.port}` : '';
+        return new URL(`/realms/${REALM}/protocol/openid-connect/token`, `https://auth.${domain}${port}`).toString();
+      } catch {
+        return '';
+      }
+    })();
   if (tokenUrl) {
     result = execSync(
       `curl -sk -s -X POST "${tokenUrl}" -H "Content-Type: application/x-www-form-urlencoded" -d "${body}"`,
@@ -235,33 +245,38 @@ async function globalSetup() {
   const mcpResourceUri = process.env['MCP_RESOURCE'] || process.env['MCP_RESOURCE_URI'] || '';
   const mcpTokenValid = process.env['MCP_TOKEN_VALID'] || '';
   const mcpTokenWrongAud = process.env['MCP_TOKEN_WRONG_AUD'] || '';
+  const mcpTokenExpired = process.env['MCP_TOKEN_EXPIRED'] || '';
   const mcpTokenMissingGroup = process.env['MCP_TOKEN_MISSING_GROUP'] || '';
 
   let generatedTokens: Record<string, string> = {};
   let mcpClientsToCleanup: string[] = [];
 
-  if (mcpResourceUri && !mcpTokenValid) {
+  if (mcpResourceUri && (!mcpTokenValid || !mcpTokenWrongAud || !mcpTokenExpired || !mcpTokenMissingGroup)) {
     try {
       const runIdShort = runId.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 12);
       const validClientSecret = process.env['MCP_TEST_CLIENT_SECRET'] || `mcp-valid-${runIdShort}`;
       const wrongAudClientSecret = process.env['MCP_WRONG_AUD_CLIENT_SECRET'] || `mcp-wrong-aud-${runIdShort}`;
+      const expiredClientSecret = process.env['MCP_EXPIRED_CLIENT_SECRET'] || `mcp-expired-${runIdShort}`;
 
       const validClientId = `mcp-test-valid-${runIdShort}`;
       const wrongAudClientId = `mcp-test-wrong-aud-${runIdShort}`;
+      const expiredClientId = `mcp-test-expired-${runIdShort}`;
 
-      mcpClientsToCleanup = [validClientId, wrongAudClientId];
+      mcpClientsToCleanup = [validClientId, wrongAudClientId, expiredClientId];
 
       const wrongAudience = `${mcpResourceUri}-wrong`;
 
       console.log('Creating temporary Keycloak clients for MCP token generation');
       createRopcClient(validClientId, validClientSecret, mcpResourceUri);
       createWrongAudClient(wrongAudClientId, wrongAudClientSecret, wrongAudience);
+      createRopcClient(expiredClientId, expiredClientSecret, mcpResourceUri, -120);
 
       console.log('Generating MCP tokens via Keycloak token endpoint');
 
       generatedTokens['MCP_TOKEN_VALID'] = getToken(validClientId, validClientSecret, mcpUser, mcpPass);
       generatedTokens['MCP_TOKEN_MISSING_GROUP'] = getToken(validClientId, validClientSecret, deniedUser, deniedPass);
       generatedTokens['MCP_TOKEN_WRONG_AUD'] = getToken(wrongAudClientId, wrongAudClientSecret, mcpUser, mcpPass);
+      generatedTokens['MCP_TOKEN_EXPIRED'] = getToken(expiredClientId, expiredClientSecret, mcpUser, mcpPass);
 
       console.log('Cleaning up temporary Keycloak clients');
       for (const clientId of mcpClientsToCleanup) {
@@ -281,6 +296,9 @@ async function globalSetup() {
   }
   if (mcpResourceUri && mcpTokenWrongAud) {
     generatedTokens['MCP_TOKEN_WRONG_AUD'] = mcpTokenWrongAud;
+  }
+  if (mcpResourceUri && mcpTokenExpired) {
+    generatedTokens['MCP_TOKEN_EXPIRED'] = mcpTokenExpired;
   }
   if (mcpResourceUri && mcpTokenMissingGroup) {
     generatedTokens['MCP_TOKEN_MISSING_GROUP'] = mcpTokenMissingGroup;

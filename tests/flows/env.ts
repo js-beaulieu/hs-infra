@@ -41,6 +41,7 @@ export const TEST_DENIED_USER_PASSWORD = generatedUsers.deniedUser?.password || 
 
 export const MCP_TOKEN_VALID = process.env['MCP_TOKEN_VALID'] || generatedTokens['MCP_TOKEN_VALID'] || '';
 export const MCP_TOKEN_WRONG_AUD = process.env['MCP_TOKEN_WRONG_AUD'] || generatedTokens['MCP_TOKEN_WRONG_AUD'] || '';
+export const MCP_TOKEN_EXPIRED = process.env['MCP_TOKEN_EXPIRED'] || generatedTokens['MCP_TOKEN_EXPIRED'] || '';
 export const MCP_TOKEN_MISSING_GROUP = process.env['MCP_TOKEN_MISSING_GROUP'] || generatedTokens['MCP_TOKEN_MISSING_GROUP'] || '';
 
 export const KEYCLOAK_ADMIN_USERNAME = process.env['KEYCLOAK_ADMIN_USERNAME'] || '';
