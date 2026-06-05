@@ -17,6 +17,7 @@ const REALM = 'homelab';
 const KC = '/opt/keycloak/bin/kcadm.sh';
 const SERVER = 'http://keycloak:8080';
 const generatedUsersPath = path.resolve(__dirname, '.generated-users.json');
+const generatedTokensPath = path.resolve(__dirname, '.generated-tokens.json');
 
 function kcExec(cmd: string): string {
   const keycloakAdminUsername = process.env['KEYCLOAK_ADMIN_USERNAME'] || '';
@@ -51,13 +52,15 @@ async function globalTeardown() {
     const generatedUsers = JSON.parse(fs.readFileSync(generatedUsersPath, 'utf-8')) as {
       testUser?: { username?: string };
       deniedUser?: { username?: string };
+      mcpUser?: { username?: string };
     };
 
-    for (const username of [generatedUsers.testUser?.username, generatedUsers.deniedUser?.username]) {
+    for (const username of [generatedUsers.testUser?.username, generatedUsers.deniedUser?.username, generatedUsers.mcpUser?.username]) {
       if (username) deleteUser(username);
     }
 
     fs.rmSync(generatedUsersPath, { force: true });
+    try { fs.rmSync(generatedTokensPath, { force: true }); } catch { /* may not exist */ }
   } finally {
     stopTestcontainersStack();
   }

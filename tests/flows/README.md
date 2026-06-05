@@ -12,19 +12,23 @@ These Playwright tests validate the current (pre-migration) and migrated (post-m
 
 - **Allowed user**: Created automatically with verified email and membership in `/homelab-users` and `/tasks-users`. Used for browser login and API tests.
 - **Denied user**: Created automatically with verified email and membership in `/homelab-users` only. Used to verify that group enforcement blocks access after authentication.
+- **MCP user**: Created automatically with verified email and membership in `/homelab-users` and `/mcp-users`. Used to obtain valid MCP bearer tokens.
 
 Setup writes generated credentials to `tests/flows/.generated-users.json`; teardown deletes those users and removes that file. `TEST_USER_PREFIX`, `TEST_USER_PASSWORD`, and `TEST_DENIED_USER_PASSWORD` may be set in the env file to customize generated users.
 
 ## Tokens
 
-Some MCP tests require manually generated Keycloak access tokens. Generate these with the correct audience and group claims for your environment, then place them in the `.env` file.
+MCP token tests require Keycloak access tokens with specific audience and group claims. These tokens are **generated automatically** during global setup when `KEYCLOAK_ADMIN_PASSWORD` is configured. The setup:
 
-- `MCP_TOKEN_VALID`: Valid token with the correct MCP audience and `/mcp-users` group.
-- `MCP_TOKEN_WRONG_AUD`: Token with a different audience.
-- `MCP_TOKEN_EXPIRED`: An expired token with the correct audience.
-- `MCP_TOKEN_MISSING_GROUP`: Valid token with correct audience but lacking `/mcp-users`.
+1. Creates a temporary MCP test user in `/mcp-users` and temporary confidential Keycloak clients with the appropriate audience mappers.
+2. Uses the Keycloak token endpoint (Resource Owner Password Credentials grant) to obtain:
+   - `MCP_TOKEN_VALID`: Valid token with the correct MCP audience and `/mcp-users` group.
+   - `MCP_TOKEN_WRONG_AUD`: Token with a different audience.
+   - `MCP_TOKEN_EXPIRED`: An expired token (1-second lifespan, waited out).
+   - `MCP_TOKEN_MISSING_GROUP`: Valid token with correct audience but lacking `/mcp-users` (uses the denied user).
+3. Cleans up the temporary clients after token generation.
 
-If tokens are not provided, those specific MCP token tests are skipped.
+Tokens are written to `tests/flows/.generated-tokens.json` and cleaned up by teardown. To override with manually generated tokens, set the environment variables directly.
 
 ## Running Tests
 
@@ -38,20 +42,11 @@ scripts/run-flow-tests.sh tests/flows/testcontainers.env.example
 
 The setup generates the Playwright URL env file after the random HTTPS port is known, creates temporary Keycloak users, and tears the Compose project down at the end.
 
-### Baseline (current URL shape)
+### Baseline (local stack)
 
 ```sh
-cp tests/flows/current.env.example tests/flows/current.env
-# Edit tests/flows/current.env with Keycloak admin credentials and optional tokens
-scripts/run-flow-tests.sh tests/flows/current.env
-```
-
-### Migrated (new URL shape)
-
-```sh
-cp tests/flows/migrated.env.example tests/flows/migrated.env
-# Edit tests/flows/migrated.env with Keycloak admin credentials and optional tokens
-scripts/run-flow-tests.sh tests/flows/migrated.env
+# Edit tests/flows/local.env with Keycloak admin credentials and optional tokens
+scripts/run-flow-tests.sh tests/flows/local.env
 ```
 
 ## Rules

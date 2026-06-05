@@ -246,8 +246,7 @@ When adding more app hosts, either register each callback URI on the same Keyclo
 - Run Keycloak behind Caddy with edge TLS termination.
 - Set `KC_HOSTNAME=https://auth.${DOMAIN}`.
 - Set `KC_HTTP_ENABLED=true` for private HTTP from Caddy to Keycloak.
-- Set `KC_PROXY_HEADERS=xforwarded` or the current Keycloak equivalent.
-- Set `KC_PROXY_TRUSTED_ADDRESSES` to Caddy's fixed `auth` network IP, currently `172.30.1.10/32`, so Keycloak trusts forwarded headers only from Caddy, not arbitrary peers on the Docker subnet.
+- Set `KC_PROXY_HEADERS=xforwarded` or the current Keycloak equivalent. Keycloak only receives traffic from Caddy on the private `auth` Docker network, so `KC_PROXY_TRUSTED_ADDRESSES` is unnecessary.
 - Keep hostname strict in production. Do not rely on arbitrary incoming Host headers for issuer URLs.
 - Use Postgres, not the embedded dev database.
 - Do not publish Keycloak or Postgres host ports.

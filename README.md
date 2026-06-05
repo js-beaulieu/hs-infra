@@ -75,7 +75,7 @@ If the origin is behind Cloudflare proxy, set:
 - `KEYCLOAK_ADMIN_REMOTE_IP_RANGES` to the same Cloudflare CIDR list.
 - `KEYCLOAK_ADMIN_CLIENT_IP_RANGES` to your real admin public CIDR allowlist.
 
-This enforces both required checks for Keycloak admin paths: the immediate peer must be Cloudflare, and the derived client IP must be an allowed admin IP. Do not trust `CF-Connecting-IP` or `X-Forwarded-For` from arbitrary direct peers. Prefer firewalling origin ports `80` and `443` to Cloudflare ranges plus explicit management networks. Keep `KEYCLOAK_PROXY_TRUSTED_ADDRESSES` scoped to Caddy's fixed `auth` network IP, `172.30.1.10/32`, not the whole Docker subnet.
+This enforces both required checks for Keycloak admin paths: the immediate peer must be Cloudflare, and the derived client IP must be an allowed admin IP. Do not trust `CF-Connecting-IP` or `X-Forwarded-For` from arbitrary direct peers. Prefer firewalling origin ports `80` and `443` to Cloudflare ranges plus explicit management networks.
 
 Cloudflare CIDRs are managed statically in `.env` for now. If automatic updates are needed, replace the standard Caddy image with a custom build that includes a Cloudflare trusted-proxy module, or regenerate `.env` from Cloudflare's published `ips-v4` and `ips-v6` endpoints.
 
@@ -158,9 +158,7 @@ DCR is not enabled by default. Enable public Dynamic Client Registration only if
 
 ## Internal Issuer Resolution
 
-Keycloak emits the public issuer `https://auth.${DOMAIN}/realms/homelab`. Containers must fetch that same URL internally so issuer validation does not split between internal and external names.
-
-Compose gives Caddy a stable `auth` network IP, `172.30.1.10`, and adds `auth.${DOMAIN}` to `/etc/hosts` for oauth2-proxy and agentgateway. This is especially important for local `*.home-stack.localhost`, because many resolvers treat `.localhost` as loopback before querying Docker DNS.
+Keycloak emits the public issuer `https://auth.${DOMAIN}/realms/homelab`, and tokens are validated against that public issuer. Agentgateway fetches JWKS directly from Keycloak at `http://keycloak:8080/realms/homelab/protocol/openid-connect/certs` on the private `auth` network, avoiding `.localhost` DNS special-casing and fixed Docker IPs.
 
 ## Add Another App
 

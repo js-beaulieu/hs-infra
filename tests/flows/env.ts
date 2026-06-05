@@ -11,7 +11,13 @@ const generatedUsers = fs.existsSync(generatedUsersPath)
   ? JSON.parse(fs.readFileSync(generatedUsersPath, 'utf-8')) as {
       testUser?: { username?: string; password?: string };
       deniedUser?: { username?: string; password?: string };
+      mcpUser?: { username?: string; password?: string };
     }
+  : {};
+
+const generatedTokensPath = path.resolve(__dirname, '.generated-tokens.json');
+const generatedTokens: Record<string, string> = fs.existsSync(generatedTokensPath)
+  ? JSON.parse(fs.readFileSync(generatedTokensPath, 'utf-8')) as Record<string, string>
   : {};
 
 function requireVar(name: string): string {
@@ -31,10 +37,10 @@ export const TEST_USER_PASSWORD = generatedUsers.testUser?.password || process.e
 export const TEST_DENIED_USER_USERNAME = generatedUsers.deniedUser?.username || process.env['TEST_DENIED_USER_USERNAME'] || '';
 export const TEST_DENIED_USER_PASSWORD = generatedUsers.deniedUser?.password || process.env['TEST_DENIED_USER_PASSWORD'] || '';
 
-export const MCP_TOKEN_VALID = process.env['MCP_TOKEN_VALID'] || '';
-export const MCP_TOKEN_WRONG_AUD = process.env['MCP_TOKEN_WRONG_AUD'] || '';
-export const MCP_TOKEN_EXPIRED = process.env['MCP_TOKEN_EXPIRED'] || '';
-export const MCP_TOKEN_MISSING_GROUP = process.env['MCP_TOKEN_MISSING_GROUP'] || '';
+export const MCP_TOKEN_VALID = process.env['MCP_TOKEN_VALID'] || generatedTokens['MCP_TOKEN_VALID'] || '';
+export const MCP_TOKEN_WRONG_AUD = process.env['MCP_TOKEN_WRONG_AUD'] || generatedTokens['MCP_TOKEN_WRONG_AUD'] || '';
+export const MCP_TOKEN_EXPIRED = process.env['MCP_TOKEN_EXPIRED'] || generatedTokens['MCP_TOKEN_EXPIRED'] || '';
+export const MCP_TOKEN_MISSING_GROUP = process.env['MCP_TOKEN_MISSING_GROUP'] || generatedTokens['MCP_TOKEN_MISSING_GROUP'] || '';
 
 export const KEYCLOAK_ADMIN_USERNAME = process.env['KEYCLOAK_ADMIN_USERNAME'] || '';
 export const KEYCLOAK_ADMIN_PASSWORD = process.env['KEYCLOAK_ADMIN_PASSWORD'] || '';

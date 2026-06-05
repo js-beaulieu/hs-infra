@@ -23,7 +23,6 @@ services:
     networks:
       edge:
       auth:
-        ipv4_address: ${CADDY_AUTH_IP:-172.30.1.10}
         aliases:
           - auth.${DOMAIN}
       tasks:
@@ -44,7 +43,6 @@ services:
       KC_HOSTNAME_STRICT: "true"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
-      KC_PROXY_TRUSTED_ADDRESSES: ${KEYCLOAK_PROXY_TRUSTED_ADDRESSES}
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "false"
     networks:
@@ -144,13 +142,10 @@ services:
       OAUTH2_PROXY_REDIRECT_URL: ${PUBLIC_API_ORIGIN:-https://api.tasks.${DOMAIN}}/oauth2/callback
       OAUTH2_PROXY_OIDC_ISSUER_URL: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/homelab
       OAUTH2_PROXY_PROVIDER_CA_FILES: ${OAUTH2_PROXY_PROVIDER_CA_FILES:-}
-      OAUTH2_PROXY_TRUSTED_PROXY_IPS: ${OAUTH2_PROXY_TRUSTED_PROXY_IPS}
       OAUTH2_PROXY_WHITELIST_DOMAINS: ${OAUTH2_PROXY_WHITELIST_DOMAINS:-tasks.${DOMAIN},api.tasks.${DOMAIN}}
     volumes:
       - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
       - ./certs:/certs:ro
-    extra_hosts:
-      - auth.${DOMAIN}:${AUTH_RESOLVE_IP:-172.30.1.10}
     networks:
       auth:
       auth-session:
@@ -169,8 +164,6 @@ services:
     volumes:
       - agentgateway_config:/etc/agentgateway:ro
       - ./certs:/certs:ro
-    extra_hosts:
-      - auth.${DOMAIN}:${AUTH_RESOLVE_IP:-172.30.1.10}
     networks:
       auth:
       tasks:
@@ -188,7 +181,7 @@ services:
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
     environment:
       AGENTGATEWAY_ISSUER: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/homelab
-      AGENTGATEWAY_JWKS_URL: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/homelab/protocol/openid-connect/certs
+      AGENTGATEWAY_JWKS_URL: http://keycloak:8080/realms/homelab/protocol/openid-connect/certs
       MCP_RESOURCE_URI: ${MCP_RESOURCE_URI:-https://api.tasks.${DOMAIN}/mcp}
       AGENTGATEWAY_CONFIG_TMPL: /etc/agentgateway/config.yaml.tmpl
       AGENTGATEWAY_CONFIG_OUT: /etc/agentgateway/config.yaml
@@ -230,30 +223,8 @@ volumes:
 
 networks:
   edge:
-    ipam:
-      config:
-        - subnet: ${EDGE_SUBNET:-172.30.0.0/24}
   auth:
-    ipam:
-      config:
-        - subnet: ${AUTH_SUBNET:-172.30.1.0/24}
   auth-db:
-    ipam:
-      config:
-        - subnet: ${AUTH_DB_SUBNET:-172.30.2.0/24}
   auth-session:
-    ipam:
-      config:
-        - subnet: ${AUTH_SESSION_SUBNET:-172.30.3.0/24}
   tasks:
-    ipam:
-      config:
-        - subnet: ${TASKS_SUBNET:-172.30.4.0/24}
   tasks-db:
-    ipam:
-      config:
-        - subnet: ${TASKS_DB_SUBNET:-172.30.5.0/24}
-  internal-gateway:
-    ipam:
-      config:
-        - subnet: ${INTERNAL_GATEWAY_SUBNET:-172.30.6.0/24}

@@ -11,6 +11,7 @@ const REALM = 'homelab';
 const KC = '/opt/keycloak/bin/kcadm.sh';
 const SERVER = 'http://keycloak:8080';
 const generatedUsersPath = path.resolve(__dirname, '.generated-users.json');
+const generatedTokensPath = path.resolve(__dirname, '.generated-tokens.json');
 
 function kcExec(cmd: string): string {
   const keycloakAdminUsername = process.env['KEYCLOAK_ADMIN_USERNAME'] || '';
@@ -73,6 +74,121 @@ function leaveGroups(username: string, groups: string[]) {
   }
 }
 
+function createRopcClient(clientId: string, clientSecret: string, audience: string, tokenLifespanSeconds?: number): string {
+  const existingId = kcExec(
+    `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1 || true`
+  ).trim();
+  if (existingId) {
+    kcExec(`"${KC}" delete clients/${existingId} -r "${REALM}"`);
+  }
+  const attrs: Record<string, string> = {};
+  if (tokenLifespanSeconds) {
+    attrs['access.token.lifespan'] = `${tokenLifespanSeconds}s`;
+  }
+  const clientJson = JSON.stringify({
+    clientId,
+    secret: clientSecret,
+    publicClient: false,
+    standardFlowEnabled: false,
+    directAccessGrantsEnabled: true,
+    serviceAccountsEnabled: false,
+    implicitFlowEnabled: false,
+    redirectUris: [],
+    attributes: attrs,
+  });
+  const tmpFile = `/tmp/mcp-test-client-${clientId}.json`;
+  kcExec(`cat > ${tmpFile} <<'CLIENTJSON'\n${clientJson}\nCLIENTJSON\n"${KC}" create clients -r "${REALM}" -f "${tmpFile}"\nrm -f ${tmpFile}`);
+  const cid = kcExec(
+    `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1`
+  ).trim();
+
+  const groupsMapperName = `${clientId}-groups`;
+  const audienceMapperName = `${clientId}-audience`;
+  const mappers = kcExec(
+    `"${KC}" get clients/${cid}/protocol-mappers/models -r "${REALM}" --fields id,name --format csv --noquotes || true`
+  ).trim();
+  for (const line of mappers.split('\n')) {
+    const parts = line.split(',');
+    const name = parts.slice(1).join(',');
+    if (name === groupsMapperName || name === audienceMapperName) {
+      const mapperId = parts[0];
+      try { kcExec(`"${KC}" delete clients/${cid}/protocol-mappers/models/${mapperId} -r "${REALM}"`); } catch { /* ignore */ }
+    }
+  }
+  kcExec(`"${KC}" create clients/${cid}/protocol-mappers/models -r "${REALM}" -s name="${groupsMapperName}" -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper -s 'config."claim.name"=groups' -s 'config."full.path"=true' -s 'config."access.token.claim"=true' -s 'config."id.token.claim"=true' -s 'config."userinfo.token.claim"=true'`);
+  kcExec(`"${KC}" create clients/${cid}/protocol-mappers/models -r "${REALM}" -s name="${audienceMapperName}" -s protocol=openid-connect -s protocolMapper=oidc-audience-mapper -s 'config."included.custom.audience"=${audience}' -s 'config."access.token.claim"=true' -s 'config."id.token.claim"=false'`);
+  return cid;
+}
+
+function createWrongAudClient(clientId: string, clientSecret: string, wrongAudience: string): string {
+  const existingId = kcExec(
+    `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1 || true`
+  ).trim();
+  if (existingId) {
+    kcExec(`"${KC}" delete clients/${existingId} -r "${REALM}"`);
+  }
+  const clientJson = JSON.stringify({
+    clientId,
+    secret: clientSecret,
+    publicClient: false,
+    standardFlowEnabled: false,
+    directAccessGrantsEnabled: true,
+    serviceAccountsEnabled: false,
+    implicitFlowEnabled: false,
+    redirectUris: [],
+    attributes: {},
+  });
+  const tmpFile = `/tmp/mcp-test-client-${clientId}.json`;
+  kcExec(`cat > ${tmpFile} <<'CLIENTJSON'\n${clientJson}\nCLIENTJSON\n"${KC}" create clients -r "${REALM}" -f "${tmpFile}"\nrm -f ${tmpFile}`);
+  const cid = kcExec(
+    `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1`
+  ).trim();
+
+  const groupsMapperName = `${clientId}-groups`;
+  const audienceMapperName = `${clientId}-audience`;
+  const mappers = kcExec(
+    `"${KC}" get clients/${cid}/protocol-mappers/models -r "${REALM}" --fields id,name --format csv --noquotes || true`
+  ).trim();
+  for (const line of mappers.split('\n')) {
+    const parts = line.split(',');
+    const name = parts.slice(1).join(',');
+    if (name === groupsMapperName || name === audienceMapperName) {
+      const mapperId = parts[0];
+      try { kcExec(`"${KC}" delete clients/${cid}/protocol-mappers/models/${mapperId} -r "${REALM}"`); } catch { /* ignore */ }
+    }
+  }
+  kcExec(`"${KC}" create clients/${cid}/protocol-mappers/models -r "${REALM}" -s name="${groupsMapperName}" -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper -s 'config."claim.name"=groups' -s 'config."full.path"=true' -s 'config."access.token.claim"=true' -s 'config."id.token.claim"=true' -s 'config."userinfo.token.claim"=true'`);
+  kcExec(`"${KC}" create clients/${cid}/protocol-mappers/models -r "${REALM}" -s name="${audienceMapperName}" -s protocol=openid-connect -s protocolMapper=oidc-audience-mapper -s 'config."included.custom.audience"=${wrongAudience}' -s 'config."access.token.claim"=true' -s 'config."id.token.claim"=false'`);
+  return cid;
+}
+
+function deleteClient(clientId: string) {
+  const existingId = kcExec(
+    `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1 || true`
+  ).trim();
+  if (existingId) {
+    kcExec(`"${KC}" delete clients/${existingId} -r "${REALM}"`);
+  }
+}
+
+function getToken(clientId: string, clientSecret: string, username: string, password: string): string {
+  const keycloakContainer = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
+  const body = `grant_type=password&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+  const result = execSync(
+    `docker exec -i ${keycloakContainer} /bin/sh -c 'curl -s -X POST "http://keycloak:8080/realms/${REALM}/protocol/openid-connect/token" -H "Content-Type: application/x-www-form-urlencoded" -d "${body}"'`,
+    { encoding: 'utf-8', timeout: 15000 }
+  );
+  const json = JSON.parse(result);
+  if (!json.access_token) {
+    throw new Error(`Failed to obtain token for ${username}: ${JSON.stringify(json)}`);
+  }
+  return json.access_token;
+}
+
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function globalSetup() {
   if (process.env['FLOW_TEST_USE_TESTCONTAINERS'] === '1') {
     await startTestcontainersStack();
@@ -109,10 +225,90 @@ async function globalSetup() {
   joinGroups(deniedUser, ['homelab-users']);
   leaveGroups(deniedUser, ['tasks-users', 'mcp-users']);
 
+  const mcpUser = `${userPrefix}-mcp-${runId}`;
+  const mcpPass = process.env['MCP_USER_PASSWORD'] || testPass;
+  createUser(mcpUser, mcpPass, `${mcpUser}@example.com`);
+  joinGroups(mcpUser, ['homelab-users', 'mcp-users']);
+
+  const mcpResourceUri = process.env['MCP_RESOURCE'] || process.env['MCP_RESOURCE_URI'] || '';
+  const mcpTokenValid = process.env['MCP_TOKEN_VALID'] || '';
+  const mcpTokenWrongAud = process.env['MCP_TOKEN_WRONG_AUD'] || '';
+  const mcpTokenExpired = process.env['MCP_TOKEN_EXPIRED'] || '';
+  const mcpTokenMissingGroup = process.env['MCP_TOKEN_MISSING_GROUP'] || '';
+
+  let generatedTokens: Record<string, string> = {};
+  let mcpClientsToCleanup: string[] = [];
+
+  if (mcpResourceUri && !mcpTokenValid) {
+    try {
+      const runIdShort = runId.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 12);
+      const validClientSecret = process.env['MCP_TEST_CLIENT_SECRET'] || `mcp-valid-${runIdShort}`;
+      const wrongAudClientSecret = process.env['MCP_WRONG_AUD_CLIENT_SECRET'] || `mcp-wrong-aud-${runIdShort}`;
+      const expiredClientSecret = process.env['MCP_EXPIRED_CLIENT_SECRET'] || `mcp-expired-${runIdShort}`;
+
+      const validClientId = `mcp-test-valid-${runIdShort}`;
+      const wrongAudClientId = `mcp-test-wrong-aud-${runIdShort}`;
+      const expiredClientId = `mcp-test-expired-${runIdShort}`;
+
+      mcpClientsToCleanup = [validClientId, wrongAudClientId, expiredClientId];
+
+      const wrongAudience = `${mcpResourceUri}-wrong`;
+
+      console.log('Creating temporary Keycloak clients for MCP token generation');
+      createRopcClient(validClientId, validClientSecret, mcpResourceUri);
+      createRopcClient(expiredClientId, expiredClientSecret, mcpResourceUri, 1);
+      createWrongAudClient(wrongAudClientId, wrongAudClientSecret, wrongAudience);
+
+      console.log('Generating MCP tokens via Keycloak token endpoint');
+      generatedTokens['MCP_TOKEN_VALID'] = getToken(validClientId, validClientSecret, mcpUser, mcpPass);
+      generatedTokens['MCP_TOKEN_MISSING_GROUP'] = getToken(validClientId, validClientSecret, deniedUser, deniedPass);
+      generatedTokens['MCP_TOKEN_WRONG_AUD'] = getToken(wrongAudClientId, wrongAudClientSecret, mcpUser, mcpPass);
+
+      console.log('Generating expired MCP token (waiting for short-lived token to expire)');
+      generatedTokens['MCP_TOKEN_EXPIRED'] = getToken(expiredClientId, expiredClientSecret, mcpUser, mcpPass);
+      await sleep(2000);
+
+      console.log('Cleaning up temporary Keycloak clients');
+      for (const clientId of mcpClientsToCleanup) {
+        try { deleteClient(clientId); } catch { /* best-effort */ }
+      }
+      mcpClientsToCleanup = [];
+    } catch (err) {
+      console.warn('MCP token generation failed; MCP token tests will be skipped:', err instanceof Error ? err.message : err);
+      for (const clientId of mcpClientsToCleanup) {
+        try { deleteClient(clientId); } catch { /* best-effort */ }
+      }
+    }
+  }
+
+  if (mcpResourceUri && mcpTokenValid) {
+    generatedTokens['MCP_TOKEN_VALID'] = mcpTokenValid;
+  }
+  if (mcpResourceUri && mcpTokenWrongAud) {
+    generatedTokens['MCP_TOKEN_WRONG_AUD'] = mcpTokenWrongAud;
+  }
+  if (mcpResourceUri && mcpTokenExpired) {
+    generatedTokens['MCP_TOKEN_EXPIRED'] = mcpTokenExpired;
+  }
+  if (mcpResourceUri && mcpTokenMissingGroup) {
+    generatedTokens['MCP_TOKEN_MISSING_GROUP'] = mcpTokenMissingGroup;
+  }
+
+  for (const [key, value] of Object.entries(generatedTokens)) {
+    process.env[key] = value;
+  }
+
   fs.writeFileSync(generatedUsersPath, JSON.stringify({
     testUser: { username: testUser, password: testPass },
     deniedUser: { username: deniedUser, password: deniedPass },
+    mcpUser: { username: mcpUser, password: mcpPass },
   }, null, 2));
+
+  if (Object.keys(generatedTokens).length > 0) {
+    fs.writeFileSync(generatedTokensPath, JSON.stringify(generatedTokens, null, 2));
+  } else {
+    try { fs.rmSync(generatedTokensPath, { force: true }); } catch { /* ignore */ }
+  }
 }
 
 export default globalSetup;

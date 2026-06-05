@@ -74,9 +74,6 @@ export async function startTestcontainersStack() {
   const apiOrigin = `https://api.tasks.${domain}:${httpsPort}`;
   const authOrigin = `https://auth.${domain}:${httpsPort}`;
   const mcpResource = `${apiOrigin}/mcp`;
-  const subnetThirdOctet = 40 + Math.floor(Math.random() * 180);
-  const caddyAuthIp = `172.28.${subnetThirdOctet + 1}.10`;
-  const authSubnet = `172.28.${subnetThirdOctet + 1}.0/24`;
   const keycloakAdminUsername = process.env['KEYCLOAK_ADMIN_USERNAME'] || 'admin';
   const keycloakAdminPassword = process.env['KEYCLOAK_ADMIN_PASSWORD'] || `admin-${randomBytes(6).toString('hex')}`;
   const envFile = path.resolve(__dirname, `.testcontainers-${projectName}.env`);
@@ -99,25 +96,14 @@ export async function startTestcontainersStack() {
     KEYCLOAK_DB_NAME: 'keycloak',
     KEYCLOAK_DB_USER: 'keycloak',
     KEYCLOAK_DB_PASSWORD: `kc-${randomBytes(12).toString('hex')}`,
-    KEYCLOAK_PROXY_TRUSTED_ADDRESSES: `${caddyAuthIp}/32`,
     OAUTH2_PROXY_CLIENT_SECRET: randomBytes(32).toString('base64url'),
     OAUTH2_PROXY_COOKIE_SECRET: randomBytes(32).toString('base64url'),
     OAUTH2_PROXY_PROVIDER_CA_FILES: '/certs/rootCA.pem',
-    OAUTH2_PROXY_TRUSTED_PROXY_IPS: authSubnet,
     OAUTH2_PROXY_WHITELIST_DOMAINS: `tasks.${domain}:${httpsPort},api.tasks.${domain}:${httpsPort}`,
     AGENTGATEWAY_SSL_CERT_FILE: '/certs/rootCA.pem',
     TASKS_DB_NAME: 'tasks',
     TASKS_DB_USER: 'tasks',
     TASKS_DB_PASSWORD: `tasks-${randomBytes(12).toString('hex')}`,
-    AUTH_RESOLVE_IP: 'host-gateway',
-    CADDY_AUTH_IP: caddyAuthIp,
-    EDGE_SUBNET: `172.28.${subnetThirdOctet}.0/24`,
-    AUTH_SUBNET: authSubnet,
-    AUTH_DB_SUBNET: `172.28.${subnetThirdOctet + 2}.0/24`,
-    AUTH_SESSION_SUBNET: `172.28.${subnetThirdOctet + 3}.0/24`,
-    TASKS_SUBNET: `172.28.${subnetThirdOctet + 4}.0/24`,
-    TASKS_DB_SUBNET: `172.28.${subnetThirdOctet + 5}.0/24`,
-    INTERNAL_GATEWAY_SUBNET: `172.28.${subnetThirdOctet + 6}.0/24`,
   };
 
   console.log(`Starting isolated Compose project ${projectName} on https port ${httpsPort}`);
