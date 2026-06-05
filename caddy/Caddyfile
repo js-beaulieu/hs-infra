@@ -27,7 +27,7 @@
 }
 
 (proxy_headers) {
-	header_up Host {host}
+	header_up Host {http.request.host}
 	header_up X-Forwarded-Proto https
 	header_up X-Forwarded-For {client_ip}
 	header_up X-Real-IP {client_ip}
@@ -66,7 +66,7 @@
 		@unauthorized status 401
 		handle_response @unauthorized {
 			route {
-				header Location "/oauth2/start?rd=https://{host}{uri}"
+				header Location "/oauth2/start?rd={$PUBLIC_WEB_ORIGIN}{uri}"
 				respond "" 302
 			}
 		}
@@ -74,7 +74,7 @@
 }
 
 (cors_tasks_origin) {
-	header Access-Control-Allow-Origin "https://tasks.{$DOMAIN}"
+	header Access-Control-Allow-Origin "{$PUBLIC_WEB_ORIGIN}"
 	header Access-Control-Allow-Credentials "true"
 	header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 	header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With"
@@ -150,22 +150,22 @@ api.tasks.{$DOMAIN} {
 
 	@mcp path /mcp /mcp/*
 
-	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "https://tasks.{$DOMAIN}" || {header.Referer}.startsWith("https://tasks.{$DOMAIN}/"))`
+	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "{$PUBLIC_WEB_ORIGIN}" || {header.Referer}.startsWith("{$PUBLIC_WEB_ORIGIN}/"))`
 	@unsafe_bad_fetch_site `method('POST', 'PUT', 'PATCH', 'DELETE') && {header.Sec-Fetch-Site} == "cross-site"`
 
 	@missing_tasks_group {
 		not header_regexp tasks_group X-Auth-Groups `(^|.*, *)/tasks-users(,.*|$)`
 	}
 
-	@cors_origin header Origin https://tasks.{$DOMAIN}
+	@cors_origin header Origin {$PUBLIC_WEB_ORIGIN}
 	@preflight_allowed {
 		method OPTIONS
-		header Origin https://tasks.{$DOMAIN}
+		header Origin {$PUBLIC_WEB_ORIGIN}
 	}
 	@preflight method OPTIONS
 
 	header @cors_origin {
-		Access-Control-Allow-Origin "https://tasks.{$DOMAIN}"
+		Access-Control-Allow-Origin "{$PUBLIC_WEB_ORIGIN}"
 		Access-Control-Allow-Credentials "true"
 		Vary "Origin"
 	}
@@ -247,13 +247,13 @@ tasks.{$DOMAIN} {
 	}
 	@mcp path /api/mcp /api/mcp/*
 	@api path /api /api/*
-	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "https://tasks.{$DOMAIN}" || {header.Referer}.startsWith("https://tasks.{$DOMAIN}/"))`
+	@unsafe_cross_site `method('POST', 'PUT', 'PATCH', 'DELETE') && !({header.Origin} == "{$PUBLIC_WEB_ORIGIN}" || {header.Referer}.startsWith("{$PUBLIC_WEB_ORIGIN}/"))`
 	@unsafe_bad_fetch_site `method('POST', 'PUT', 'PATCH', 'DELETE') && {header.Sec-Fetch-Site} == "cross-site"`
-	@cors_origin header Origin https://tasks.{$DOMAIN}
+	@cors_origin header Origin {$PUBLIC_WEB_ORIGIN}
 	@preflight_allowed {
 		method OPTIONS
 		path /api /api/*
-		header Origin https://tasks.{$DOMAIN}
+		header Origin {$PUBLIC_WEB_ORIGIN}
 	}
 	@preflight {
 		method OPTIONS
@@ -264,7 +264,7 @@ tasks.{$DOMAIN} {
 	}
 
 	header @cors_origin {
-		Access-Control-Allow-Origin "https://tasks.{$DOMAIN}"
+		Access-Control-Allow-Origin "{$PUBLIC_WEB_ORIGIN}"
 		Access-Control-Allow-Credentials "true"
 		Vary "Origin"
 	}

@@ -44,7 +44,8 @@ export const KEYCLOAK_ORIGIN = (() => {
     const url = new URL(WEB_ORIGIN);
     const parts = url.hostname.split('.');
     const domain = parts.slice(1).join('.');
-    return `https://auth.${domain}`;
+    const port = url.port ? `:${url.port}` : '';
+    return `https://auth.${domain}${port}`;
   } catch {
     return 'https://auth.home-stack.localhost';
   }

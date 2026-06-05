@@ -11,3 +11,5 @@ node_modules/
 test-results/
 tests/flows/*.env
 tests/flows/.generated-users.json
+tests/flows/.testcontainers-*.env
+tests/flows/.testcontainers-state.json

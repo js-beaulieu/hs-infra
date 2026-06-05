@@ -2,13 +2,10 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { startTestcontainersStack } from './testcontainers-stack';
 
 const envFileRaw = process.env['FLOW_TEST_ENV_FILE'] || path.resolve(__dirname, 'current.env');
 dotenv.config({ path: path.resolve(envFileRaw), override: true });
-
-const KEYCLOAK_ADMIN_USERNAME = process.env['KEYCLOAK_ADMIN_USERNAME'] || '';
-const KEYCLOAK_ADMIN_PASSWORD = process.env['KEYCLOAK_ADMIN_PASSWORD'] || '';
-const KEYCLOAK_CONTAINER = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
 
 const REALM = 'homelab';
 const KC = '/opt/keycloak/bin/kcadm.sh';
@@ -16,12 +13,15 @@ const SERVER = 'http://keycloak:8080';
 const generatedUsersPath = path.resolve(__dirname, '.generated-users.json');
 
 function kcExec(cmd: string): string {
+  const keycloakAdminUsername = process.env['KEYCLOAK_ADMIN_USERNAME'] || '';
+  const keycloakAdminPassword = process.env['KEYCLOAK_ADMIN_PASSWORD'] || '';
+  const keycloakContainer = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
   const script = [
     `set -e`,
-    `"${KC}" config credentials --server "${SERVER}" --realm master --user "${KEYCLOAK_ADMIN_USERNAME}" --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null 2>&1 || exit 1`,
+    `"${KC}" config credentials --server "${SERVER}" --realm master --user "${keycloakAdminUsername}" --password "${keycloakAdminPassword}" >/dev/null 2>&1 || exit 1`,
     cmd,
   ].join('\n');
-  return execSync(`docker exec -i ${KEYCLOAK_CONTAINER} /bin/sh`, {
+  return execSync(`docker exec -i ${keycloakContainer} /bin/sh`, {
     input: script,
     encoding: 'utf-8',
     timeout: 30000,
@@ -74,7 +74,12 @@ function leaveGroups(username: string, groups: string[]) {
 }
 
 async function globalSetup() {
-  if (!KEYCLOAK_ADMIN_PASSWORD) {
+  if (process.env['FLOW_TEST_USE_TESTCONTAINERS'] === '1') {
+    await startTestcontainersStack();
+    dotenv.config({ path: path.resolve(process.env['FLOW_TEST_ENV_FILE']!), override: true });
+  }
+
+  if (!process.env['KEYCLOAK_ADMIN_PASSWORD']) {
     console.warn('KEYCLOAK_ADMIN_PASSWORD not set; skipping test user setup');
     return;
   }

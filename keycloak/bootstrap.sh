@@ -20,6 +20,11 @@ require_json_string_safe DOMAIN "$DOMAIN"
 require_json_string_safe OAUTH2_PROXY_CLIENT_SECRET "$OAUTH2_PROXY_CLIENT_SECRET"
 require_json_string_safe MCP_RESOURCE_URI "$MCP_RESOURCE_URI"
 
+PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN:-https://tasks.$DOMAIN}
+PUBLIC_API_ORIGIN=${PUBLIC_API_ORIGIN:-https://api.tasks.$DOMAIN}
+require_json_string_safe PUBLIC_WEB_ORIGIN "$PUBLIC_WEB_ORIGIN"
+require_json_string_safe PUBLIC_API_ORIGIN "$PUBLIC_API_ORIGIN"
+
 if ! "$KC" config credentials --server "$SERVER" --realm master --user "$KEYCLOAK_ADMIN_USERNAME" --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null 2>&1; then
   echo "Keycloak is not ready or credentials are invalid. Exiting."
   exit 1
@@ -74,8 +79,8 @@ cat >/tmp/oauth2-proxy-client.json <<JSON
   "directAccessGrantsEnabled": false,
   "implicitFlowEnabled": false,
   "secret": "$OAUTH2_PROXY_CLIENT_SECRET",
-  "redirectUris": ["https://tasks.$DOMAIN/oauth2/callback", "https://api.tasks.$DOMAIN/oauth2/callback"],
-  "webOrigins": ["https://tasks.$DOMAIN", "https://api.tasks.$DOMAIN"],
+  "redirectUris": ["$PUBLIC_WEB_ORIGIN/oauth2/callback", "$PUBLIC_API_ORIGIN/oauth2/callback"],
+  "webOrigins": ["$PUBLIC_WEB_ORIGIN", "$PUBLIC_API_ORIGIN"],
   "attributes": {
     "pkce.code.challenge.method": "S256"
   }
@@ -91,7 +96,7 @@ cat >/tmp/tasks-mcp-client.json <<JSON
   "standardFlowEnabled": true,
   "directAccessGrantsEnabled": false,
   "implicitFlowEnabled": false,
-  "redirectUris": ["http://localhost:7777/callback", "http://localhost:*/*", "https://tasks.$DOMAIN/*", "https://api.tasks.$DOMAIN/*"],
+  "redirectUris": ["http://localhost:7777/callback", "http://localhost:*/*", "$PUBLIC_WEB_ORIGIN/*", "$PUBLIC_API_ORIGIN/*"],
   "webOrigins": ["+"],
   "attributes": {
     "pkce.code.challenge.method": "S256"

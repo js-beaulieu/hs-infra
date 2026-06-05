@@ -1,0 +1,9 @@
+services:
+  keycloak:
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 40
+
+  agentgateway-bootstrap:
+    network_mode: none

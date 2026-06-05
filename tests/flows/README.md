@@ -28,6 +28,16 @@ If tokens are not provided, those specific MCP token tests are skipped.
 
 ## Running Tests
 
+### Isolated Testcontainers Stack
+
+This mode starts a disposable Docker Compose project with random host ports and test-scoped volumes, so it does not publish `80`/`443` or reuse the real `home-stack` project resources.
+
+```sh
+scripts/run-flow-tests.sh tests/flows/testcontainers.env.example
+```
+
+The setup generates the Playwright URL env file after the random HTTPS port is known, creates temporary Keycloak users, and tears the Compose project down at the end.
+
 ### Baseline (current URL shape)
 
 ```sh

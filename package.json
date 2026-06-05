@@ -13,6 +13,7 @@
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.1",
     "dotenv": "^17.4.2",
+    "testcontainers": "^12.0.1",
     "typescript": "^6.0.3"
   }
 }
