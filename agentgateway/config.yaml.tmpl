@@ -42,7 +42,7 @@ binds:
                   targets:
                     - name: tasks-api
                       mcp:
-                        host: http://tasks-api:8080/api/mcp
+                        host: http://tasks-api:8080/mcp
 
           - name: tasks-mcp-metadata
             matches:
@@ -77,7 +77,7 @@ binds:
                   targets:
                     - name: tasks-api
                       mcp:
-                        host: http://tasks-api:8080/api/mcp
+                        host: http://tasks-api:8080/mcp
 
           - name: tasks-mcp-old
             matches:
@@ -145,7 +145,7 @@ binds:
                               x-user-email: 'default(jwt.email, "")'
                               x-user-name: 'coalesce(jwt.preferred_username, jwt.name, "")'
                       mcp:
-                        host: http://tasks-api:8080/api/mcp
+                        host: http://tasks-api:8080/mcp
 
           - name: tasks-mcp
             matches:
@@ -213,4 +213,4 @@ binds:
                               x-user-email: 'default(jwt.email, "")'
                               x-user-name: 'coalesce(jwt.preferred_username, jwt.name, "")'
                       mcp:
-                        host: http://tasks-api:8080/api/mcp
+                        host: http://tasks-api:8080/mcp

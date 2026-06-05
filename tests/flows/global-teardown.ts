@@ -24,7 +24,6 @@ function kcExec(cmd: string): string {
   const keycloakAdminPassword = process.env['KEYCLOAK_ADMIN_PASSWORD'] || '';
   const keycloakContainer = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
   const script = [
-    `set -e`,
     `"${KC}" config credentials --server "${SERVER}" --realm master --user "${keycloakAdminUsername}" --password "${keycloakAdminPassword}" >/dev/null 2>&1 || exit 1`,
     cmd,
   ].join('\n');

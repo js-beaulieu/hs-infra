@@ -154,3 +154,27 @@ done
 
 ensure_mapper oauth2-proxy-tasks oauth2-proxy-audience /tmp/oauth2-audience-mapper.json
 ensure_mapper tasks-mcp tasks-mcp-audience /tmp/mcp-audience-mapper.json
+
+# Enable OAuth 2.0 Dynamic Client Registration (RFC 7591) for MCP client onboarding.
+# Configures existing Keycloak anonymous DCR policies via the components API.
+# See IMPLEMENTATION_PLAN.md: disable anonymous DCR if static clients suffice.
+
+# Trusted Hosts: restrict which hosts may initiate DCR.
+# host-sending-registration-request-must-match is false because requests
+# arrive via Caddy reverse proxy, so the source IP is Caddy's, not the client.
+# client-uris-must-match remains true to prevent open redirect abuse.
+TRUSTED_HOSTS_CID=$("$KC" get components -r "$REALM" --fields id,providerId,subType --format csv --noquotes 2>/dev/null | grep ",trusted-hosts,anonymous" | cut -d, -f1 || true)
+if [ -n "$TRUSTED_HOSTS_CID" ]; then
+  "$KC" update components/$TRUSTED_HOSTS_CID -r "$REALM" \
+    -s 'config.host-sending-registration-request-must-match=["false"]' \
+    -s "config.trusted-hosts=[\"auth.$DOMAIN\",\"api.tasks.$DOMAIN\",\"localhost\",\"127.0.0.1\"]" \
+    -s 'config.client-uris-must-match=["true"]'
+fi
+
+# Allowed Client Scopes for anonymous DCR: restrict to openid, profile, email.
+SCOPES_CID=$("$KC" get components -r "$REALM" --fields id,providerId,subType --format csv --noquotes 2>/dev/null | grep ",allowed-client-templates,anonymous" | cut -d, -f1 || true)
+if [ -n "$SCOPES_CID" ]; then
+  "$KC" update components/$SCOPES_CID -r "$REALM" \
+    -s 'config.allow-default-scopes=["true"]' \
+    -s 'config.allowed-client-scopes=["openid","profile","email"]'
+fi

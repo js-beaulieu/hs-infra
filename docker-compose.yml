@@ -143,6 +143,8 @@ services:
       OAUTH2_PROXY_OIDC_ISSUER_URL: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/homelab
       OAUTH2_PROXY_PROVIDER_CA_FILES: ${OAUTH2_PROXY_PROVIDER_CA_FILES:-}
       OAUTH2_PROXY_WHITELIST_DOMAINS: ${OAUTH2_PROXY_WHITELIST_DOMAINS:-tasks.${DOMAIN},api.tasks.${DOMAIN}}
+    extra_hosts:
+      - auth.${DOMAIN}:host-gateway
     volumes:
       - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
       - ./certs:/certs:ro
@@ -161,6 +163,8 @@ services:
     command: ["-f", "/etc/agentgateway/config.yaml"]
     environment:
       SSL_CERT_FILE: ${AGENTGATEWAY_SSL_CERT_FILE:-}
+    extra_hosts:
+      - auth.${DOMAIN}:host-gateway
     volumes:
       - agentgateway_config:/etc/agentgateway:ro
       - ./certs:/certs:ro

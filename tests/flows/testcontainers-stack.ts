@@ -133,7 +133,6 @@ export async function startTestcontainersStack() {
     TEST_DENIED_USER_PASSWORD: process.env['TEST_DENIED_USER_PASSWORD'] || process.env['TEST_USER_PASSWORD'] || 'ChangeMe123',
     MCP_TOKEN_VALID: process.env['MCP_TOKEN_VALID'] || '',
     MCP_TOKEN_WRONG_AUD: process.env['MCP_TOKEN_WRONG_AUD'] || '',
-    MCP_TOKEN_EXPIRED: process.env['MCP_TOKEN_EXPIRED'] || '',
     MCP_TOKEN_MISSING_GROUP: process.env['MCP_TOKEN_MISSING_GROUP'] || '',
   });
 

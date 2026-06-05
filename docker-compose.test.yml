@@ -4,10 +4,3 @@ services:
       interval: 5s
       timeout: 3s
       retries: 40
-
-  oauth2-proxy:
-    extra_hosts:
-      - auth.${DOMAIN}:host-gateway
-
-  agentgateway-bootstrap:
-    network_mode: none

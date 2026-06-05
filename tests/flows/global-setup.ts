@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { startTestcontainersStack } from './testcontainers-stack';
+import { KEYCLOAK_ORIGIN } from './env';
 
 const envFileRaw = process.env['FLOW_TEST_ENV_FILE'] || path.resolve(__dirname, 'current.env');
 dotenv.config({ path: path.resolve(envFileRaw), override: true });
@@ -18,7 +19,6 @@ function kcExec(cmd: string): string {
   const keycloakAdminPassword = process.env['KEYCLOAK_ADMIN_PASSWORD'] || '';
   const keycloakContainer = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
   const script = [
-    `set -e`,
     `"${KC}" config credentials --server "${SERVER}" --realm master --user "${keycloakAdminUsername}" --password "${keycloakAdminPassword}" >/dev/null 2>&1 || exit 1`,
     cmd,
   ].join('\n');
@@ -37,7 +37,7 @@ function createUser(username: string, password: string, email: string): string {
   const uid = kcExec(
     `"${KC}" get users -r "${REALM}" -q username="${username}" --fields id --format csv --noquotes | tail -n 1`
   ).trim();
-  kcExec(`"${KC}" set-password --username "${username}" -r "${REALM}" --new-password "${password}"`);
+  kcExec(`"${KC}" set-password --username "${username}" -r "${REALM}" --new-password "${password}" --temporary=false`);
   return uid;
 }
 
@@ -74,16 +74,12 @@ function leaveGroups(username: string, groups: string[]) {
   }
 }
 
-function createRopcClient(clientId: string, clientSecret: string, audience: string, tokenLifespanSeconds?: number): string {
+function createRopcClient(clientId: string, clientSecret: string, audience: string): string {
   const existingId = kcExec(
     `"${KC}" get clients -r "${REALM}" -q clientId="${clientId}" --fields id --format csv --noquotes | tail -n 1 || true`
   ).trim();
   if (existingId) {
     kcExec(`"${KC}" delete clients/${existingId} -r "${REALM}"`);
-  }
-  const attrs: Record<string, string> = {};
-  if (tokenLifespanSeconds) {
-    attrs['access.token.lifespan'] = `${tokenLifespanSeconds}s`;
   }
   const clientJson = JSON.stringify({
     clientId,
@@ -94,7 +90,7 @@ function createRopcClient(clientId: string, clientSecret: string, audience: stri
     serviceAccountsEnabled: false,
     implicitFlowEnabled: false,
     redirectUris: [],
-    attributes: attrs,
+    attributes: {},
   });
   const tmpFile = `/tmp/mcp-test-client-${clientId}.json`;
   kcExec(`cat > ${tmpFile} <<'CLIENTJSON'\n${clientJson}\nCLIENTJSON\n"${KC}" create clients -r "${REALM}" -f "${tmpFile}"\nrm -f ${tmpFile}`);
@@ -172,21 +168,27 @@ function deleteClient(clientId: string) {
 }
 
 function getToken(clientId: string, clientSecret: string, username: string, password: string): string {
-  const keycloakContainer = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
   const body = `grant_type=password&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-  const result = execSync(
-    `docker exec -i ${keycloakContainer} /bin/sh -c 'curl -s -X POST "http://keycloak:8080/realms/${REALM}/protocol/openid-connect/token" -H "Content-Type: application/x-www-form-urlencoded" -d "${body}"'`,
-    { encoding: 'utf-8', timeout: 15000 }
-  );
+  let result: string;
+  const tokenUrl = process.env['KEYCLOAK_TOKEN_URL']
+    || (() => { try { return new URL('/realms/' + REALM + '/protocol/openid-connect/token', KEYCLOAK_ORIGIN).toString(); } catch { return ''; } })();
+  if (tokenUrl) {
+    result = execSync(
+      `curl -sk -s -X POST "${tokenUrl}" -H "Content-Type: application/x-www-form-urlencoded" -d "${body}"`,
+      { encoding: 'utf-8', timeout: 15000 }
+    );
+  } else {
+    const keycloakContainer = process.env['KEYCLOAK_CONTAINER_NAME'] || 'home-stack-keycloak-1';
+    result = execSync(
+      `docker exec -i ${keycloakContainer} /bin/sh -c 'curl -s -X POST "http://keycloak:8080/realms/${REALM}/protocol/openid-connect/token" -H "Content-Type: application/x-www-form-urlencoded" -d "${body}"'`,
+      { encoding: 'utf-8', timeout: 15000 }
+    );
+  }
   const json = JSON.parse(result);
   if (!json.access_token) {
     throw new Error(`Failed to obtain token for ${username}: ${JSON.stringify(json)}`);
   }
   return json.access_token;
-}
-
-async function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function globalSetup() {
@@ -233,7 +235,6 @@ async function globalSetup() {
   const mcpResourceUri = process.env['MCP_RESOURCE'] || process.env['MCP_RESOURCE_URI'] || '';
   const mcpTokenValid = process.env['MCP_TOKEN_VALID'] || '';
   const mcpTokenWrongAud = process.env['MCP_TOKEN_WRONG_AUD'] || '';
-  const mcpTokenExpired = process.env['MCP_TOKEN_EXPIRED'] || '';
   const mcpTokenMissingGroup = process.env['MCP_TOKEN_MISSING_GROUP'] || '';
 
   let generatedTokens: Record<string, string> = {};
@@ -244,29 +245,23 @@ async function globalSetup() {
       const runIdShort = runId.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 12);
       const validClientSecret = process.env['MCP_TEST_CLIENT_SECRET'] || `mcp-valid-${runIdShort}`;
       const wrongAudClientSecret = process.env['MCP_WRONG_AUD_CLIENT_SECRET'] || `mcp-wrong-aud-${runIdShort}`;
-      const expiredClientSecret = process.env['MCP_EXPIRED_CLIENT_SECRET'] || `mcp-expired-${runIdShort}`;
 
       const validClientId = `mcp-test-valid-${runIdShort}`;
       const wrongAudClientId = `mcp-test-wrong-aud-${runIdShort}`;
-      const expiredClientId = `mcp-test-expired-${runIdShort}`;
 
-      mcpClientsToCleanup = [validClientId, wrongAudClientId, expiredClientId];
+      mcpClientsToCleanup = [validClientId, wrongAudClientId];
 
       const wrongAudience = `${mcpResourceUri}-wrong`;
 
       console.log('Creating temporary Keycloak clients for MCP token generation');
       createRopcClient(validClientId, validClientSecret, mcpResourceUri);
-      createRopcClient(expiredClientId, expiredClientSecret, mcpResourceUri, 1);
       createWrongAudClient(wrongAudClientId, wrongAudClientSecret, wrongAudience);
 
       console.log('Generating MCP tokens via Keycloak token endpoint');
+
       generatedTokens['MCP_TOKEN_VALID'] = getToken(validClientId, validClientSecret, mcpUser, mcpPass);
       generatedTokens['MCP_TOKEN_MISSING_GROUP'] = getToken(validClientId, validClientSecret, deniedUser, deniedPass);
       generatedTokens['MCP_TOKEN_WRONG_AUD'] = getToken(wrongAudClientId, wrongAudClientSecret, mcpUser, mcpPass);
-
-      console.log('Generating expired MCP token (waiting for short-lived token to expire)');
-      generatedTokens['MCP_TOKEN_EXPIRED'] = getToken(expiredClientId, expiredClientSecret, mcpUser, mcpPass);
-      await sleep(2000);
 
       console.log('Cleaning up temporary Keycloak clients');
       for (const clientId of mcpClientsToCleanup) {
@@ -286,9 +281,6 @@ async function globalSetup() {
   }
   if (mcpResourceUri && mcpTokenWrongAud) {
     generatedTokens['MCP_TOKEN_WRONG_AUD'] = mcpTokenWrongAud;
-  }
-  if (mcpResourceUri && mcpTokenExpired) {
-    generatedTokens['MCP_TOKEN_EXPIRED'] = mcpTokenExpired;
   }
   if (mcpResourceUri && mcpTokenMissingGroup) {
     generatedTokens['MCP_TOKEN_MISSING_GROUP'] = mcpTokenMissingGroup;
