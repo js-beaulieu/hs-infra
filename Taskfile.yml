@@ -1,0 +1,98 @@
+version: "3"
+
+tasks:
+  start:
+    desc: Start the stack
+    cmds:
+      - docker compose --env-file .env -f docker/compose.yml up -d --build
+
+  stop:
+    desc: Stop the stack
+    cmds:
+      - docker compose -f docker/compose.yml down
+
+  test:
+    desc: Run flow tests against current URL shape
+    cmds:
+      - bash scripts/run-flow-tests.sh {{.CLI_ARGS | default "tests/flows/current.env"}}
+
+  lint:
+    desc: Run all config validations
+    deps: [lint:compose, lint:caddy, lint:oauth2-proxy, lint:agentgateway, lint:ts, lint:sh]
+
+  lint:compose:
+    desc: Validate Docker Compose config
+    cmds:
+      - docker compose --env-file .env -f docker/compose.yml config --quiet
+
+  lint:caddy:
+    desc: Validate Caddy config
+    cmds:
+      - |
+        docker run --rm \
+          -v $PWD/caddy:/etc/caddy:ro \
+          -e ACME_EMAIL=test@localhost \
+          -e CADDY_TRUSTED_PROXIES="127.0.0.1/32" \
+          -e DOMAIN=localhost \
+          -e PUBLIC_WEB_ORIGIN=https://tasks.localhost \
+          -e KEYCLOAK_ADMIN_REMOTE_IP_RANGES="private_ranges" \
+          -e KEYCLOAK_ADMIN_CLIENT_IP_RANGES="private_ranges" \
+          caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+  lint:oauth2-proxy:
+    desc: Validate oauth2-proxy config
+    cmds:
+      - |
+        docker run --rm \
+          -v $PWD/oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro \
+          -e OAUTH2_PROXY_CLIENT_ID=test \
+          -e OAUTH2_PROXY_CLIENT_SECRET=test \
+          -e OAUTH2_PROXY_COOKIE_SECRET=$(openssl rand -base64 32 | tr '+/' '-_') \
+          -e OAUTH2_PROXY_REDIRECT_URL=https://test.local/oauth2/callback \
+          -e OAUTH2_PROXY_OIDC_ISSUER_URL=https://test.local/realms/test \
+          -e OAUTH2_PROXY_COOKIE_DOMAINS=.test.local \
+          -e OAUTH2_PROXY_SESSION_STORE_TYPE=cookie \
+          quay.io/oauth2-proxy/oauth2-proxy:v7.15.1 \
+          --config /etc/oauth2-proxy/oauth2-proxy.cfg --config-test
+
+  lint:agentgateway:
+    desc: Validate agentgateway config
+    cmds:
+      - |
+        mkdir -p /tmp/agentgateway-lint
+        echo '{"keys":[]}' > /tmp/agentgateway-lint/jwks.json
+        sed \
+          -e 's|\${AGENTGATEWAY_ISSUER}|https://auth.test.local/realms/homelab|g' \
+          -e 's|\${AGENTGATEWAY_JWKS_URL}|https://auth.test.local/realms/homelab/protocol/openid-connect/certs|g' \
+          -e 's|\${MCP_RESOURCE_URI}|https://api.tasks.test.local/mcp|g' \
+          -e 's|url: "https://auth.test.local/realms/homelab/protocol/openid-connect/certs"|file: "/etc/agentgateway/jwks.json"|g' \
+          agentgateway/config.yaml.tmpl > /tmp/agentgateway-lint/config.yaml
+        docker run --rm \
+          -v /tmp/agentgateway-lint:/etc/agentgateway:ro \
+          cr.agentgateway.dev/agentgateway:v1.2.1 \
+          -f /etc/agentgateway/config.yaml --validate-only
+        rm -rf /tmp/agentgateway-lint
+
+  lint:ts:
+    desc: Typecheck TypeScript
+    cmds:
+      - npx tsc --noEmit
+
+  lint:sh:
+    desc: Shellcheck scripts
+    cmds:
+      - shellcheck --severity=warning keycloak/bootstrap.sh agentgateway/bootstrap.sh postgres/bootstrap.sh scripts/run-flow-tests.sh
+
+  format:
+    desc: Check formatting with Prettier
+    cmds:
+      - npx prettier --check .
+
+  format:write:
+    desc: Format with Prettier (write)
+    cmds:
+      - npx prettier --write .
+
+  ci:
+    desc: Run test, lint, and format
+    deps: [test, lint, format]

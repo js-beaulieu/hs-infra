@@ -14,8 +14,8 @@ services:
       KEYCLOAK_ADMIN_REMOTE_IP_RANGES: ${KEYCLOAK_ADMIN_REMOTE_IP_RANGES}
       KEYCLOAK_ADMIN_CLIENT_IP_RANGES: ${KEYCLOAK_ADMIN_CLIENT_IP_RANGES}
     volumes:
-      - ./caddy:/etc/caddy:ro
-      - ./certs:/certs:ro
+      - ../caddy:/etc/caddy:ro
+      - ../certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:
@@ -46,7 +46,7 @@ services:
       auth:
       auth-db:
     volumes:
-      - ./keycloak/healthcheck.sh:/healthcheck.sh:ro
+      - ../keycloak/healthcheck.sh:/healthcheck.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "sh /healthcheck.sh"]
       interval: 5s
@@ -71,7 +71,7 @@ services:
       MCP_ACCESS_TOKEN_LIFESPAN_SECONDS: ${MCP_ACCESS_TOKEN_LIFESPAN_SECONDS:-31536000}
       OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS: ${OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS:-300}
     volumes:
-      - ./keycloak/bootstrap.sh:/bootstrap.sh:ro
+      - ../keycloak/bootstrap.sh:/bootstrap.sh:ro
     networks:
       auth:
     depends_on:
@@ -125,8 +125,8 @@ services:
     extra_hosts:
       - auth.${DOMAIN}:host-gateway
     volumes:
-      - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
-      - ./certs:/certs:ro
+      - ../oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+      - ../certs:/certs:ro
     networks:
       auth:
       auth-session:
@@ -146,7 +146,7 @@ services:
       - auth.${DOMAIN}:host-gateway
     volumes:
       - agentgateway_config:/etc/agentgateway:ro
-      - ./certs:/certs:ro
+      - ../certs:/certs:ro
     networks:
       auth:
     depends_on:
@@ -166,8 +166,8 @@ services:
       AGENTGATEWAY_CONFIG_TMPL: /etc/agentgateway/config.yaml.tmpl
       AGENTGATEWAY_CONFIG_OUT: /etc/agentgateway/config.yaml
     volumes:
-      - ./agentgateway/config.yaml.tmpl:/etc/agentgateway/config.yaml.tmpl:ro
-      - ./agentgateway/bootstrap.sh:/bootstrap.sh:ro
+      - ../agentgateway/config.yaml.tmpl:/etc/agentgateway/config.yaml.tmpl:ro
+      - ../agentgateway/bootstrap.sh:/bootstrap.sh:ro
       - agentgateway_config:/etc/agentgateway
     network_mode: none
 

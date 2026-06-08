@@ -20,12 +20,10 @@ if ! command -v node >/dev/null 2>&1; then
   fi
 fi
 
-for tool in node; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "Missing required tool: $tool"
-    exit 1
-  fi
-done
+if ! command -v node >/dev/null 2>&1; then
+  echo "Missing required tool: node"
+  exit 1
+fi
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"

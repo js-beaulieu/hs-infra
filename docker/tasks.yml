@@ -20,7 +20,7 @@ services:
       TASKS_DB_USER: ${TASKS_DB_USER}
       TASKS_DB_PASSWORD: ${TASKS_DB_PASSWORD}
     volumes:
-      - ./postgres/bootstrap.sh:/bootstrap.sh:ro
+      - ../postgres/bootstrap.sh:/bootstrap.sh:ro
     networks:
       auth-db:
     depends_on:
@@ -53,7 +53,7 @@ services:
     image: nginx:1-alpine
     restart: unless-stopped
     volumes:
-      - ./tasks-web:/usr/share/nginx/html:ro
+      - ../tasks-web:/usr/share/nginx/html:ro
     networks:
       tasks-web:
 

@@ -135,4 +135,4 @@ auth.{$DOMAIN} {
 	}
 }
 
-import /etc/caddy/apps/*.caddy
+import tasks.caddy

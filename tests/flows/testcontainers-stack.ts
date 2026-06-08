@@ -53,7 +53,7 @@ async function waitForUrl(url: string, timeoutMs = 120000) {
 
 function composeDown(projectName: string) {
   execSync(
-    `docker compose -p ${projectName} -f docker-compose.yml -f docker-compose.test.yml down -v --remove-orphans`,
+    `docker compose -p ${projectName} -f docker/compose.yml -f docker/test.yml down -v --remove-orphans`,
     { cwd: repoRoot, stdio: 'inherit', timeout: 120000 }
   );
 }
@@ -109,7 +109,7 @@ export async function startTestcontainersStack() {
   };
 
   console.log(`Starting isolated Compose project ${projectName} on https port ${httpsPort}`);
-  await new DockerComposeEnvironment(repoRoot, ['docker-compose.yml', 'docker-compose.test.yml'])
+  await new DockerComposeEnvironment(repoRoot, ['docker/compose.yml', 'docker/test.yml'])
     .withProjectName(projectName)
     .withEnvironment(composeEnv)
     .withWaitStrategy('caddy-1', Wait.forListeningPorts())

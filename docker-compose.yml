@@ -1,5 +1,0 @@
-name: home-stack
-
-include:
-  - compose.core.yml
-  - compose.tasks.yml

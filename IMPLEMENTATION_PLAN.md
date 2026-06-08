@@ -301,26 +301,26 @@ Create a small but scalable layout.
 
 Required files:
 
-- `docker-compose.yml`
-- `compose.core.yml`
-- `compose.tasks.yml`
-- `.env.example`
-- `caddy/Caddyfile`
-- `caddy/apps/tasks.caddy`
-- `oauth2-proxy/oauth2-proxy.cfg`
-- `agentgateway/config.yaml.tmpl`
-- `agentgateway/bootstrap.sh`
-- `postgres/bootstrap.sh`
-- `keycloak/bootstrap.sh`
-- `keycloak/healthcheck.sh`
+- `docker/compose.yml`
+- `docker/core.yml`
+- `docker/tasks.yml`
+- `docker/.env.example`
+- `docker/caddy/Caddyfile`
+- `docker/caddy/tasks.caddy`
+- `docker/oauth2-proxy/oauth2-proxy.cfg`
+- `docker/agentgateway/config.yaml.tmpl`
+- `docker/agentgateway/bootstrap.sh`
+- `docker/postgres/bootstrap.sh`
+- `docker/keycloak/bootstrap.sh`
+- `docker/keycloak/healthcheck.sh`
 - `README.md`
 
 Optional files:
 
-- `keycloak/realm-export.json` if using import/export.
-- `tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
+- `docker/keycloak/realm-export.json` if using import/export.
+- `docker/tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
 
-`docker-compose.yml` is a thin default entrypoint that includes shared platform and app-specific Compose files. Keep shared infrastructure in `compose.core.yml`; keep Tasks services and Tasks-specific shared-service network attachments in `compose.tasks.yml`. Future app files should follow the same pattern.
+`docker/compose.yml` is a thin default entrypoint that includes shared platform and app-specific Compose files. Keep shared infrastructure in `docker/core.yml`; keep Tasks services and Tasks-specific shared-service network attachments in `docker/tasks.yml`. Future app files should follow the same pattern.
 
 Required services:
 
@@ -340,7 +340,7 @@ Required persistent volumes:
 
 - Caddy `/data` and `/config` so ACME account material and certificates persist.
 - Keycloak Postgres data so realm, user, group, and client configuration persists.
-- agentgateway rendered config volume so `agentgateway-bootstrap` can generate `/etc/agentgateway/config.yaml` for the runtime container.
+- agentgateway rendered config volume so `agentgateway-bootstrap` can generate `/etc/agentgateway/config.yaml` for the runtime container from `docker/agentgateway/config.yaml.tmpl`.
 - Redis persistence is optional for the first slice; losing Redis sessions only forces browser reauthentication.
 
 Required explicit networks:
@@ -438,10 +438,10 @@ End-to-end flow verification must prove the three primary paths work and stay is
 - Confirm direct-to-origin requests with spoofed `CF-Connecting-IP` or `X-Forwarded-For` cannot access admin paths.
 - Confirm non-admin clients through Cloudflare cannot access admin paths even though their direct peer is Cloudflare.
 
-- `docker compose config` validates Compose syntax.
+- `docker compose --env-file .env -f docker/compose.yml config` validates Compose syntax.
 - Caddy config validation passes if the Caddy image/tooling is available.
 - oauth2-proxy config validation passes with `--config-test` if available.
-- `docker compose up` smoke test passes if allowed in the environment.
+- `docker compose -f docker/compose.yml up` smoke test passes if allowed in the environment.
 - `curl -i https://api.tasks.${DOMAIN}/health` returns public health response.
 - `curl -i https://api.tasks.${DOMAIN}/health/extra` does not hit the public health route.
 - `curl -i https://tasks.${DOMAIN}/` returns browser login redirect when unauthenticated.
@@ -477,7 +477,7 @@ End-to-end flow verification must prove the three primary paths work and stay is
 ## Deliverables
 
 - Working config files for Caddy, oauth2-proxy, Keycloak, agentgateway, and Docker Compose.
-- `.env.example` with all required variables and no real secrets.
+- `docker/.env.example` with all required variables and no real secrets.
 - README explaining how to set `DOMAIN`, Keycloak secrets, and client IDs.
 - README explaining route precedence and why `/api/mcp*` must not be used.
 - README explaining how to add another app with its own Docker network.

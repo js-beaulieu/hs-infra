@@ -15,7 +15,7 @@ set -eu
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
 # Wait for Postgres to accept connections
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
   if pg_isready -h postgres -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; then
     break
   fi

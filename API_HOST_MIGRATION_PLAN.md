@@ -108,7 +108,7 @@ MCP flow:
 
 ### Phase 3: Caddy Routing
 
-Update `caddy/Caddyfile`.
+Update `docker/caddy/Caddyfile`.
 
 - Keep `auth.{$DOMAIN}` behavior unchanged unless required for callback/DCR compatibility.
 - Add `api.tasks.{$DOMAIN}` as the public API site.
@@ -131,7 +131,7 @@ If production DNS points `tasks.${DOMAIN}` to a CDN, Caddy should not be the aut
 
 ### Phase 4: oauth2-proxy
 
-Update `oauth2-proxy/oauth2-proxy.cfg` only if needed.
+Update `docker/oauth2-proxy/oauth2-proxy.cfg` only if needed.
 
 - Keep one oauth2-proxy instance.
 - Change cookie name from `__Host-oauth2_proxy` to `__Secure-oauth2_proxy` because `__Host-` cookies cannot share across subdomains. The frontend (`tasks.${DOMAIN}`) and API gateway (`api.tasks.${DOMAIN}`) must share the SSO session.
@@ -142,14 +142,14 @@ Update `oauth2-proxy/oauth2-proxy.cfg` only if needed.
 - Do not set `user_id_claim`.
 - Do not set `prefer_email_to_user`.
 
-Update `docker-compose.yml` oauth2-proxy environment:
+Update `docker/compose.yml` oauth2-proxy environment:
 
 - `OAUTH2_PROXY_REDIRECT_URL=https://api.tasks.${DOMAIN}/oauth2/callback`.
 - `OAUTH2_PROXY_WHITELIST_DOMAINS` includes the frontend return host and API host as required by oauth2-proxy redirect validation.
 
 ### Phase 5: Keycloak Bootstrap
 
-Update `keycloak/bootstrap.sh`.
+Update `docker/keycloak/bootstrap.sh`.
 
 - Change the `oauth2-proxy-tasks` redirect URI to `https://api.tasks.$DOMAIN/oauth2/callback`.
 - Set browser client web origins to include `https://tasks.$DOMAIN` and `https://api.tasks.$DOMAIN` where Keycloak requires it.
@@ -160,7 +160,7 @@ Update `keycloak/bootstrap.sh`.
 
 ### Phase 6: agentgateway
 
-Update `agentgateway/config.yaml.tmpl`.
+Update `docker/agentgateway/config.yaml.tmpl`.
 
 - Change protected-resource metadata match to `/.well-known/oauth-protected-resource/mcp`.
 - Change MCP traffic matches to exact `/mcp` and prefix `/mcp/`.
@@ -176,7 +176,7 @@ Update `docker-compose.yml` agentgateway/keycloak bootstrap environment:
 
 ### Phase 7: Environment And Local TLS
 
-Update `.env.example`.
+Update `docker/.env.example`.
 
 - Add `api.tasks.home-stack.localhost` to the mkcert command.
 - Document production DNS:
@@ -198,7 +198,7 @@ Update `README.md` and `IMPLEMENTATION_PLAN.md`.
 - Document that agentgateway AS-proxy/DCR routes are optional compatibility routes if kept.
 - Update curl checks and validation checklist.
 
-Update `tasks-web/index.html` if it remains in the repo.
+Update `docker/tasks-web/index.html` if it remains in the repo.
 
 - Change copy to say API is on `api.tasks.${DOMAIN}` and MCP is `/mcp`.
 - Keep it clearly positioned as a local placeholder if production frontend is CDN-hosted.
@@ -207,7 +207,7 @@ Update `tasks-web/index.html` if it remains in the repo.
 
 Run this loop after Phase 2.
 
-1. Run `docker compose config`.
+1. Run `docker compose --env-file .env -f docker/compose.yml config`.
 2. Run Caddy validation if the container/tooling is available.
 3. Start or restart the stack.
 4. Run `scripts/run-flow-tests.sh tests/flows/migrated.env`.
