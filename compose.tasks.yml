@@ -1,0 +1,63 @@
+services:
+  caddy:
+    networks:
+      tasks-api:
+      tasks-web:
+
+  postgres:
+    networks:
+      tasks-db:
+
+  postgres-bootstrap:
+    image: postgres:17-alpine
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER}
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      TASKS_DB_NAME: ${TASKS_DB_NAME}
+      TASKS_DB_USER: ${TASKS_DB_USER}
+      TASKS_DB_PASSWORD: ${TASKS_DB_PASSWORD}
+    volumes:
+      - ./postgres/bootstrap.sh:/bootstrap.sh:ro
+    networks:
+      auth-db:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  agentgateway:
+    networks:
+      tasks-api:
+    depends_on:
+      tasks-api:
+        condition: service_started
+
+  tasks-api:
+    image: ghcr.io/js-beaulieu/tasks-api:latest
+    restart: unless-stopped
+    environment:
+      PG_CONNECTION_STRING: postgres://${TASKS_DB_USER}:${TASKS_DB_PASSWORD}@postgres:5432/${TASKS_DB_NAME}?sslmode=disable
+      PORT: 8080
+    networks:
+      tasks-db:
+      tasks-api:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
+
+  tasks-web:
+    image: nginx:1-alpine
+    restart: unless-stopped
+    volumes:
+      - ./tasks-web:/usr/share/nginx/html:ro
+    networks:
+      tasks-web:
+
+networks:
+  tasks-api:
+  tasks-web:
+  tasks-db:

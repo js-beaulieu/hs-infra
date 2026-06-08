@@ -302,8 +302,11 @@ Create a small but scalable layout.
 Required files:
 
 - `docker-compose.yml`
+- `compose.core.yml`
+- `compose.tasks.yml`
 - `.env.example`
 - `caddy/Caddyfile`
+- `caddy/apps/tasks.caddy`
 - `oauth2-proxy/oauth2-proxy.cfg`
 - `agentgateway/config.yaml.tmpl`
 - `agentgateway/bootstrap.sh`
@@ -316,6 +319,8 @@ Optional files:
 
 - `keycloak/realm-export.json` if using import/export.
 - `tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
+
+`docker-compose.yml` is a thin default entrypoint that includes shared platform and app-specific Compose files. Keep shared infrastructure in `compose.core.yml`; keep Tasks services and Tasks-specific shared-service network attachments in `compose.tasks.yml`. Future app files should follow the same pattern.
 
 Required services:
 

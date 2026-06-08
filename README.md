@@ -35,7 +35,7 @@ Generate the cookie secret with:
 openssl rand -base64 32 | tr '+/' '-_'
 ```
 
-Image versions live directly in `docker-compose.yml`. Use the latest stable major/current release tags published by each upstream registry; `tasks-api` currently uses `latest` because the upstream image does not publish version tags yet.
+Image versions live in `compose.core.yml` for shared platform services and `compose.tasks.yml` for the Tasks app. Use the latest stable major/current release tags published by each upstream registry; `tasks-api` currently uses `latest` because the upstream image does not publish version tags yet.
 
 ## Local HTTPS
 
@@ -169,7 +169,7 @@ For each new app:
 
 - Create a dedicated Docker network for that app.
 - Attach Caddy and only the app-specific private services to that network.
-- Add app-specific route precedence to `caddy/Caddyfile`.
+- Add app-specific route precedence to `caddy/apps/<app>.caddy`.
 - Add a Keycloak group such as `/newapp-users` and enforce it at the gateway, not inside the API.
 - Register callback URIs or create a per-app oauth2-proxy client if shared callback handling becomes ambiguous.
 
@@ -178,6 +178,13 @@ For each new app:
 Future service-to-service calls should go through an internal gateway that verifies signed JWTs, strips spoofable identity headers, and injects the same trusted header contract. APIs should continue consuming trusted headers and should not each grow custom JWT verification logic.
 
 ## Run
+
+`docker-compose.yml` is the default entrypoint and includes the shared platform file plus the Tasks app file:
+
+- `compose.core.yml`: Caddy, Keycloak, oauth2-proxy, Redis, Postgres, agentgateway, and shared networks/volumes.
+- `compose.tasks.yml`: Tasks services plus Tasks-specific network attachments for Caddy, agentgateway, and Postgres.
+- `caddy/Caddyfile`: shared Caddy options/snippets and Keycloak routes.
+- `caddy/apps/tasks.caddy`: Tasks web/API/MCP routes.
 
 ```sh
 docker compose config
