@@ -39,20 +39,20 @@ Do not change assertions, status expectations, auth expectations, spoofing check
 
 ## Test Files To Add First
 
-Add an executable Playwright test harness before changing the stack behavior.
+Add an executable Python pytest harness before changing the stack behavior.
 
-- `playwright.config.ts`: single Playwright test runner config for browser and API-only tests.
+- `pyproject.toml`: pytest, Playwright, httpx, and testcontainers runner/dependency config.
 - `tests/flows/README.md`: explains prerequisites, required test users/tokens, how to run current and migrated suites, and the rule that post-baseline test edits are URL-only.
 - `tests/flows/current.env.example`: current URL variables and placeholder credentials/token variables.
 - `tests/flows/migrated.env.example`: new URL variables only; same test expectations.
-- `tests/flows/env.ts`: reads and validates required environment variables for all tests.
-- `tests/flows/app-login.spec.ts`: real browser app login, oauth2-proxy, Keycloak redirect/form, cookie, successful user, denied user, and expired/invalid session checks.
-- `tests/flows/api.spec.ts`: Playwright APIRequestContext tests for health, unauthenticated protected API, authenticated API, spoofed identity headers, stripped authorization headers, CORS preflight, and CSRF/origin behavior.
-- `tests/flows/mcp.spec.ts`: Playwright APIRequestContext tests for MCP metadata, unauthenticated challenge, invalid/tampered token, wrong audience or expired token, missing group, valid token, and route boundary checks.
-- `tests/flows/helpers.ts`: shared login, cookie/session, token, and assertion helpers used by the specs.
-- `scripts/run-flow-tests.sh`: validates required tools/env, loads one env file, and runs `npx playwright test` against the same spec files for current and migrated URL shapes.
+- `tests/flows/flow_env.py`: reads and validates required environment variables for all tests.
+- `tests/flows/test_app_login_flow.py`: real browser app login, oauth2-proxy, Keycloak redirect/form, cookie, successful user, denied user, and expired/invalid session checks.
+- `tests/flows/test_api_flow.py`: httpx and Playwright request tests for health, unauthenticated protected API, spoofed identity headers, stripped authorization headers, CORS preflight, and CSRF/origin behavior.
+- `tests/flows/test_mcp_flow.py`: httpx and Playwright request tests for MCP metadata, unauthenticated challenge, invalid/tampered token, wrong audience or expired token, missing group, valid token, and route boundary checks.
+- `tests/flows/flow_helpers.py`: shared login, cookie/session, token, and assertion helpers used by the tests.
+- `scripts/run-flow-tests.sh`: validates required tools/env, loads one env file, and runs `uv run pytest` against the same test files for current and migrated URL shapes.
 
-Use Playwright for all validation tests. Browser flows use Playwright pages/contexts; API, gateway, and MCP checks use Playwright `APIRequestContext`. Do not introduce a second validation runner without asking first.
+Use pytest for all validation tests. Browser flows use Playwright pages/contexts; API, gateway, and MCP checks use httpx unless Playwright browser context behavior is under test.
 
 ## Required Test Coverage
 

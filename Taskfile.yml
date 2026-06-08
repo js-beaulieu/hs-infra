@@ -18,7 +18,7 @@ tasks:
 
   lint:
     desc: Run all config validations
-    deps: [lint:compose, lint:caddy, lint:oauth2-proxy, lint:agentgateway, lint:ts, lint:sh]
+    deps: [lint:compose, lint:caddy, lint:oauth2-proxy, lint:agentgateway, lint:sh]
 
   lint:compose:
     desc: Validate Docker Compose config
@@ -72,11 +72,6 @@ tasks:
           cr.agentgateway.dev/agentgateway:v1.2.1 \
           -f /etc/agentgateway/config.yaml --validate-only
         rm -rf /tmp/agentgateway-lint
-
-  lint:ts:
-    desc: Typecheck TypeScript
-    cmds:
-      - npx tsc --noEmit
 
   lint:sh:
     desc: Shellcheck scripts

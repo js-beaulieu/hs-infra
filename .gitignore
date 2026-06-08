@@ -7,7 +7,9 @@ certs/*.p12
 certs/*.jks
 !certs/.gitkeep
 agentgateway/config.yaml
-node_modules/
+.venv/
+__pycache__/
+*.py[cod]
 test-results/
 tests/flows/*.env
 tests/flows/.generated-users.json

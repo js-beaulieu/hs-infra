@@ -13,8 +13,8 @@
 ```
 task start          # docker compose up -d --build
 task stop           # docker compose down
-task test           # run Playwright flow tests (current URL shape)
-task lint           # validate compose, caddy, oauth2-proxy, agentgateway, tsc --noEmit, shellcheck
+task test           # run Python Playwright/httpx flow tests (current URL shape)
+task lint           # validate compose, caddy, oauth2-proxy, agentgateway, shellcheck
 task format         # npx prettier --check .
 task format:write   # npx prettier --write .
 task ci             # run test, lint, format in parallel
@@ -25,9 +25,9 @@ task ci             # run test, lint, format in parallel
 
 ## Testing
 
-- All tests live in `tests/flows/` and use Playwright (browser + APIRequestContext).
-- `tests/flows/testcontainers-stack.ts` manages an isolated `docker compose` project with randomized ports and project name. Use `FLOW_TEST_USE_TESTCONTAINERS=1` to enable it.
-- `tests/flows/global-setup.ts` creates Keycloak test users, groups, and MCP tokens via `docker exec` into the Keycloak container.
+- All tests live in `tests/flows/` and use pytest with Playwright for browser checks and httpx for HTTP checks.
+- `tests/flows/testcontainers_stack.py` manages an isolated Docker Compose project through testcontainers with randomized ports and project name. Use `FLOW_TEST_USE_TESTCONTAINERS=1` to enable it.
+- `tests/flows/keycloak_setup.py` creates Keycloak test users, groups, and MCP tokens via `docker exec` into the Keycloak container.
 - Flow tests have two URL shapes: current (`current.env`) and migrated (`migrated.env`). Tests are the same; only URL variables differ.
 - Never change non-URL test logic after baseline is green without asking.
 
@@ -46,5 +46,4 @@ task ci             # run test, lint, format in parallel
 - Compose services always declare explicit `networks:` — no implicit default network.
 - Offline one-shot services (agentgateway-bootstrap) use `network_mode: none`.
 - Route config lives in `caddy/Caddyfile` (shared) + `caddy/*.caddy` (per-app).
-- Taskfile is the canonical task runner — use `task <name>`, not raw `docker compose` or `npx` commands in CI/docs.
-- This is a CommonJS project (`"type": "commonjs"` in package.json) — use `require`, not `import`.
+- Taskfile is the canonical task runner — use `task <name>`, not raw `docker compose` commands in CI/docs.

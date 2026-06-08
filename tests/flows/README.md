@@ -1,6 +1,6 @@
 # Flow Tests
 
-These Playwright tests validate the current (pre-migration) and migrated (post-migration) URL shapes for the home-stack auth gateway.
+These Python pytest tests use Playwright and httpx to validate the current (pre-migration) and migrated (post-migration) URL shapes for the home-stack auth gateway.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ This mode starts a disposable Docker Compose project with random host ports and 
 scripts/run-flow-tests.sh tests/flows/testcontainers.env.example
 ```
 
-The setup generates the Playwright URL env file after the random HTTPS port is known, creates temporary Keycloak users, and tears the Compose project down at the end.
+The setup generates the flow URL env file after the random HTTPS port is known, creates temporary Keycloak users, and tears the Compose project down at the end.
 
 ### Baseline (local stack)
 
@@ -57,6 +57,6 @@ scripts/run-flow-tests.sh tests/flows/local.env
 
 ## Coverage
 
-- `app-login.spec.ts`: Browser SSO login, cookie properties, group denial, and expired/invalid session.
-- `api.spec.ts`: Public health, unauthenticated protected API, authenticated API, spoofed headers, CORS preflight, CSRF, and origin checks.
-- `mcp.spec.ts`: MCP metadata, unauthenticated challenge, token validation, route boundaries, and bearer forwarding rules.
+- `test_app_login_flow.py`: Browser SSO login, cookie properties, group denial, and expired/invalid session.
+- `test_api_flow.py`: Public health, unauthenticated protected API, authenticated API, spoofed headers, CORS preflight, CSRF, and origin checks.
+- `test_mcp_flow.py`: MCP metadata, unauthenticated challenge, token validation, route boundaries, and bearer forwarding rules.
