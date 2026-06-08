@@ -13,7 +13,7 @@ This project is a greenfield homelab auth gateway stack. Build the gateway and c
 - Network model: explicit per-app Docker networks, not one shared default network.
 - First app host: `tasks.${DOMAIN}`.
 - First app API: private `tasks-api` service exposed publicly through `https://api.tasks.${DOMAIN}`. Normal browser API routes such as `/users/me` proxy directly to `tasks-api`; temporary compatibility routes on `tasks.${DOMAIN}/api/*` may strip `/api` during decommissioning. agentgateway exposes public MCP at `/mcp` and proxies to the upstream `tasks-api` MCP endpoint at `/api/mcp` while the API image uses that path.
-- First app browser route: `/` is not served by `tasks-api`. Use either a minimal private static `tasks-web` container on the `tasks` network or point Caddy to a CDN/static origin.
+- First app browser route: `/` is not served by `tasks-api`. Use either a minimal private static `tasks-web` container on a frontend-only network or point Caddy to a CDN/static origin.
 - API auth model: gateway-verified auth with trusted identity headers to APIs.
 - Service-to-service model: internal gateway verifies signed service/user JWTs, then injects the same trusted headers. APIs should not need JWT verification code.
 - Data stores: Postgres for Keycloak and Redis for oauth2-proxy sessions. Neither is public.
@@ -63,7 +63,7 @@ DCR must not be exposed casually on the public internet. Claude/ChatGPT MCP comp
 - Restrict allowed scopes and protocol mappers.
 - Require consent for newly registered clients.
 - Set a low max-client limit and monitor registrations.
-- Disable anonymous DCR again if Claude/ChatGPT compatibility can be satisfied with static/pre-registered clients.
+- Keep anonymous DCR constrained to known connector hosts and MCP scopes until Claude/ChatGPT compatibility can be validated with static/pre-registered clients or CIMD support.
 
 ## Required Route Precedence For `api.tasks.${DOMAIN}`
 
@@ -155,7 +155,7 @@ Do not use `/mcp*`; it matches unwanted paths like `/mcpfoo`. Temporary compatib
 - Route exact `/health` to `tasks-api` without auth.
 - Route exact `/mcp` and `/mcp/*` to agentgateway, preserving the client `Authorization` header only as far as agentgateway.
 - Route exact `/` and `/*` through an oauth2-proxy auth check, then to `tasks-api`.
-- Route `tasks.${DOMAIN}` browser `/` through an oauth2-proxy auth check, then to the frontend/app route. The frontend route is either `tasks-web` on the `tasks` network or a CDN/static origin; it must not proxy to `tasks-api`.
+- Route `tasks.${DOMAIN}` browser `/` through an oauth2-proxy auth check, then to the frontend/app route. The frontend route is either `tasks-web` on the `tasks-web` network or a CDN/static origin; it must not proxy to `tasks-api`.
 - Keep backwards-compatible old routes on `tasks.${DOMAIN}` (`/api/health`, `/api/mcp`, `/api/*`) until fully decommissioned.
 - For browser `/`, use `forward_auth` against oauth2-proxy `/oauth2/auth` and explicitly convert auth-check `401` into a redirect to `/oauth2/start?rd=...`.
 - For canonical API routes on `api.tasks.${DOMAIN}`, use the same auth check but return `401/403`, not a browser login redirect. Temporary compatibility `/api` and `/api/*` routes on `tasks.${DOMAIN}` must preserve that same non-redirect behavior.
@@ -266,7 +266,7 @@ Create at least these clients:
 Public Keycloak access policy:
 
 - Publicly expose realm frontend/OIDC endpoints required for login, discovery, JWKS, token, userinfo, and MCP client compatibility.
-- If DCR is enabled, publicly expose only the needed Keycloak client-registration endpoint with strict client registration policies.
+- If DCR is enabled, publicly expose only the needed Keycloak client-registration endpoint with strict client registration policies and the `mcp` client scope that carries the MCP audience/groups mappers.
 - The current Caddy implementation publicly proxies `/realms/*` for OIDC and MCP-client compatibility, which includes the Keycloak client-registration path if Keycloak enables it. Do not enable anonymous DCR until Keycloak registration policies are configured.
 - Do not leave the admin console/API broadly public. Required policy for this stack is Caddy IP allowlisting through Cloudflare, based on both verified Cloudflare source and verified real client IP.
 - Because the VPS is behind Cloudflare proxy, a Caddy IP allowlist must account for Cloudflare. Trust only Cloudflare edge CIDRs as proxies, require the immediate peer to be Cloudflare, then compare the derived client IP against `ADMIN_ALLOWED_CIDRS` or equivalent. A raw socket IP allowlist alone will only see Cloudflare edge IPs and is not sufficient to identify the administrator.
@@ -275,7 +275,7 @@ Public Keycloak access policy:
 
 ## agentgateway Requirements
 
-- Put agentgateway on the `tasks` network where `tasks-api` is reachable.
+- Put agentgateway on the `tasks-api` network where `tasks-api` is reachable.
 - Give agentgateway a way to resolve/fetch Keycloak issuer metadata and JWKS for the public issuer `https://auth.${DOMAIN}/realms/homelab`.
 - Configure route matches for exact `/mcp` and prefix `/mcp/*`.
 - Configure an exact protected-resource metadata route for `/.well-known/oauth-protected-resource/mcp`.
@@ -319,16 +319,16 @@ Optional files:
 
 Required services:
 
-- `caddy`: the only service publishing host ports, attached to `edge`, `auth`, and `tasks`.
+- `caddy`: the only service publishing host ports, attached to `edge`, `auth`, `tasks-api`, and `tasks-web`.
 - `keycloak`: attached to `auth` and `auth-db`, no host ports.
 - `postgres`: attached to `auth-db` and `tasks-db`, no host ports. Shared Postgres service with separate Keycloak and tasks databases/users; tasks-api user/database bootstrapped by `postgres-bootstrap`.
 - `postgres-bootstrap`: attached to `auth-db`, no host ports, idempotently creates the tasks database/user after Postgres is healthy.
 - `keycloak-bootstrap`: attached to `auth`, no host ports, idempotently creates the homelab realm, baseline groups, OIDC clients, and protocol mappers after Keycloak is healthy.
 - `oauth2-proxy`: attached to `auth` and `auth-session`, no host ports.
-- `agentgateway`: attached to `tasks` and `auth` so it can reach Keycloak metadata/JWKS, no host ports.
+- `agentgateway`: attached to `tasks-api` and `auth` so it can reach Keycloak metadata/JWKS and `tasks-api`, no host ports.
 - `agentgateway-bootstrap`: uses `network_mode: none`, no host ports, and renders `agentgateway/config.yaml.tmpl` into the `agentgateway_config` volume without external network/package access.
-- `tasks-api`: attached to `tasks` and `tasks-db`, no host ports.
-- `tasks-web`: attached only to `tasks`, no host ports, only if using a container frontend instead of CDN/static origin.
+- `tasks-api`: attached to `tasks-api` and `tasks-db`, no host ports.
+- `tasks-web`: attached only to `tasks-web`, no host ports, only if using a container frontend instead of CDN/static origin.
 - `redis`: attached only to `auth-session`, no host ports.
 
 Required persistent volumes:
@@ -344,7 +344,8 @@ Required explicit networks:
 - `auth`: Caddy, oauth2-proxy, Keycloak, agentgateway.
 - `auth-db`: Keycloak and Postgres only.
 - `auth-session`: oauth2-proxy and Redis only.
-- `tasks`: Caddy, agentgateway, `tasks-api`.
+- `tasks-api`: Caddy, agentgateway, `tasks-api`.
+- `tasks-web`: Caddy, `tasks-web`.
 - `tasks-db`: `tasks-api` and Postgres only.
 - `internal-gateway`: reserved for future service-to-service gateway path.
 

@@ -86,6 +86,39 @@ ensure_mapper() {
   "$KC" create clients/$cid/protocol-mappers/models -r "$REALM" -f "$mapper_file"
 }
 
+ensure_client_scope() {
+  scope_name=$1
+  existing_id=$("$KC" get client-scopes -r "$REALM" --fields id,name --format csv --noquotes | grep ",$scope_name$" | cut -d, -f1 | tail -n 1 || true)
+  if [ -n "$existing_id" ]; then
+    printf '%s' "$existing_id"
+  else
+    "$KC" create client-scopes -r "$REALM" -s name="$scope_name" -s protocol=openid-connect >/dev/null
+    "$KC" get client-scopes -r "$REALM" --fields id,name --format csv --noquotes | grep ",$scope_name$" | cut -d, -f1 | tail -n 1
+  fi
+}
+
+ensure_client_scope_mapper() {
+  scope_id=$1
+  mapper_name=$2
+  mapper_file=$3
+  "$KC" get client-scopes/$scope_id/protocol-mappers/models -r "$REALM" --fields id,name --format csv --noquotes >/tmp/client-scope-mappers.csv || true
+  while IFS=, read -r id name; do
+    if [ "$name" = "$mapper_name" ]; then
+      "$KC" delete client-scopes/$scope_id/protocol-mappers/models/$id -r "$REALM"
+    fi
+  done </tmp/client-scope-mappers.csv
+  "$KC" create client-scopes/$scope_id/protocol-mappers/models -r "$REALM" -f "$mapper_file"
+}
+
+ensure_client_default_scope() {
+  client_id=$1
+  scope_id=$2
+  cid=$(client_uuid "$client_id")
+  if ! "$KC" get clients/$cid/default-client-scopes -r "$REALM" --fields id --format csv --noquotes | grep -q "^$scope_id$"; then
+    "$KC" update clients/$cid/default-client-scopes/$scope_id -r "$REALM"
+  fi
+}
+
 cat >/tmp/oauth2-proxy-client.json <<JSON
 {
   "clientId": "oauth2-proxy-tasks",
@@ -167,12 +200,17 @@ cat >/tmp/mcp-audience-mapper.json <<JSON
 }
 JSON
 
+mcp_scope_id=$(ensure_client_scope mcp)
+ensure_client_scope_mapper "$mcp_scope_id" groups /tmp/groups-mapper.json
+ensure_client_scope_mapper "$mcp_scope_id" tasks-mcp-audience /tmp/mcp-audience-mapper.json
+
 for client in oauth2-proxy-tasks tasks-mcp; do
   ensure_mapper "$client" groups /tmp/groups-mapper.json
 done
 
 ensure_mapper oauth2-proxy-tasks oauth2-proxy-audience /tmp/oauth2-audience-mapper.json
 ensure_mapper tasks-mcp tasks-mcp-audience /tmp/mcp-audience-mapper.json
+ensure_client_default_scope tasks-mcp "$mcp_scope_id"
 
 # Enable OAuth 2.0 Dynamic Client Registration (RFC 7591) for MCP client onboarding.
 # Configures existing Keycloak anonymous DCR policies via the components API.
@@ -186,14 +224,14 @@ TRUSTED_HOSTS_CID=$("$KC" get components -r "$REALM" --fields id,providerId,subT
 if [ -n "$TRUSTED_HOSTS_CID" ]; then
   "$KC" update components/$TRUSTED_HOSTS_CID -r "$REALM" \
     -s 'config.host-sending-registration-request-must-match=["false"]' \
-    -s "config.trusted-hosts=[\"auth.$DOMAIN\",\"api.tasks.$DOMAIN\",\"localhost\",\"127.0.0.1\"]" \
+    -s "config.trusted-hosts=[\"auth.$DOMAIN\",\"api.tasks.$DOMAIN\",\"claude.ai\",\"chatgpt.com\",\"chat.openai.com\",\"localhost\",\"127.0.0.1\"]" \
     -s 'config.client-uris-must-match=["true"]'
 fi
 
-# Allowed Client Scopes for anonymous DCR: restrict to openid, profile, email.
+# Allowed Client Scopes for anonymous DCR: restrict to baseline OIDC plus the MCP scope.
 SCOPES_CID=$("$KC" get components -r "$REALM" --fields id,providerId,subType --format csv --noquotes 2>/dev/null | grep ",allowed-client-templates,anonymous" | cut -d, -f1 || true)
 if [ -n "$SCOPES_CID" ]; then
   "$KC" update components/$SCOPES_CID -r "$REALM" \
     -s 'config.allow-default-scopes=["true"]' \
-    -s 'config.allowed-client-scopes=["openid","profile","email"]'
+    -s 'config.allowed-client-scopes=["openid","profile","email","mcp"]'
 fi

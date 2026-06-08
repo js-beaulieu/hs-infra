@@ -53,7 +53,7 @@ test.describe('mcp flow', () => {
           grant_types: ['authorization_code', 'refresh_token'],
           response_types: ['code'],
           token_endpoint_auth_method: 'none',
-          scope: 'openid profile email',
+          scope: 'openid profile email mcp',
         },
       });
       expect(res.status()).toBe(201);
@@ -73,7 +73,7 @@ test.describe('mcp flow', () => {
           grant_types: ['authorization_code'],
           response_types: ['code'],
           token_endpoint_auth_method: 'none',
-          scope: 'openid profile email admin',
+          scope: 'openid profile email mcp admin',
         },
       });
       expect([400, 403]).toContain(res.status());
