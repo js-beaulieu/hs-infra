@@ -7,7 +7,10 @@ import httpx
 import pytest
 
 from tests.flows.flow_env import DEFAULT_ENV_FILE, FlowEnv, flow_env_file, load_env_file
-from tests.flows.keycloak_setup import setup_keycloak_flow_state, teardown_keycloak_flow_state
+from tests.flows.keycloak_setup import (
+    setup_keycloak_flow_state,
+    teardown_keycloak_flow_state,
+)
 from tests.flows.testcontainers_stack import start_testcontainers_stack
 
 
@@ -54,5 +57,7 @@ def flow_env(flow_global_setup) -> FlowEnv:
 
 @pytest.fixture
 def http_client(flow_global_setup):
-    with httpx.Client(verify=False, follow_redirects=True, timeout=30.0, trust_env=False) as client:
+    with httpx.Client(
+        verify=False, follow_redirects=True, timeout=30.0, trust_env=False
+    ) as client:
         yield client

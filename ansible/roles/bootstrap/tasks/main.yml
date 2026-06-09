@@ -1,0 +1,39 @@
+---
+- name: Install Python and sudo for Ansible
+  ansible.builtin.raw: |
+    set -eu
+    if ! command -v python3 >/dev/null 2>&1 || ! command -v sudo >/dev/null 2>&1; then
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y python3 sudo
+    fi
+  changed_when: false
+- name: Gather facts after Python bootstrap
+  ansible.builtin.setup:
+- name: Require Debian 13
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Debian"
+      - ansible_facts.distribution_major_version == "13"
+    fail_msg: This deployment currently targets Debian 13 only.
+- name: Ensure admin user exists with sudo
+  ansible.builtin.user:
+    name: '{{ home_stack_admin_user }}'
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    create_home: true
+    state: present
+- name: Ensure deploy user exists without docker group membership
+  ansible.builtin.user:
+    name: '{{ home_stack_deploy_user }}'
+    shell: /bin/bash
+    groups: ''
+    append: false
+    create_home: true
+    state: present
+- name: Install deploy SSH authorized keys
+  ansible.posix.authorized_key:
+    user: '{{ home_stack_deploy_user }}'
+    key: '{{ item }}'
+    state: present
+  loop: '{{ home_stack_deploy_authorized_keys }}'

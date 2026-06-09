@@ -1,0 +1,4 @@
+---
+home_stack_admin_user: debian
+home_stack_deploy_user: deploy
+home_stack_deploy_authorized_keys: []

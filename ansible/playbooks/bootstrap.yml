@@ -1,0 +1,5 @@
+---
+- name: Bootstrap fresh Debian VPS access
+  hosts: home_stack
+  gather_facts: false
+  roles: [bootstrap]

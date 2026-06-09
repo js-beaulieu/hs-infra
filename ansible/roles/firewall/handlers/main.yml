@@ -1,0 +1,4 @@
+---
+- name: Apply Docker user firewall rules
+  ansible.builtin.command: /usr/local/sbin/home-stack-firewall-docker-user
+  changed_when: true

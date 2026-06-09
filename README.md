@@ -84,21 +84,21 @@ Cloudflare CIDRs are managed statically in `.env` for now. If automatic updates 
 `api.tasks.${DOMAIN}` is routed in this order:
 
 1. `/oauth2/*` goes directly to oauth2-proxy (callback).
-2. MCP OAuth metadata exact paths go to agentgateway.
-3. Exact `GET`/`HEAD /health` goes to `tasks-api` `/health` without auth.
-4. Exact `/mcp` and `/mcp/*` go to agentgateway and must not browser-redirect.
-5. `/` and `/*` use oauth2-proxy auth checks and return `401/403`, not login redirects.
-6. Unsafe methods require `Origin: https://tasks.${DOMAIN}` or same-origin `Referer`.
-7. `OPTIONS` preflight is handled before auth with CORS for `https://tasks.${DOMAIN}`.
+1. MCP OAuth metadata exact paths go to agentgateway.
+1. Exact `GET`/`HEAD /health` goes to `tasks-api` `/health` without auth.
+1. Exact `/mcp` and `/mcp/*` go to agentgateway and must not browser-redirect.
+1. `/` and `/*` use oauth2-proxy auth checks and return `401/403`, not login redirects.
+1. Unsafe methods require `Origin: https://tasks.${DOMAIN}` or same-origin `Referer`.
+1. `OPTIONS` preflight is handled before auth with CORS for `https://tasks.${DOMAIN}`.
 
 `tasks.${DOMAIN}` is routed in this order:
 
 1. `/oauth2/*` goes directly to oauth2-proxy.
-2. MCP OAuth metadata exact paths go to agentgateway (backwards-compatible).
-3. Exact `GET`/`HEAD /api/health` strips `/api` and goes to `tasks-api` `/health` without auth.
-4. Exact `/api/mcp` and `/api/mcp/*` go to agentgateway.
-5. Exact `/api` and `/api/*` use oauth2-proxy auth checks, strip `/api`, and return `401/403`.
-6. `/` uses oauth2-proxy auth checks and sends unauthenticated browsers to `/oauth2/start`.
+1. MCP OAuth metadata exact paths go to agentgateway (backwards-compatible).
+1. Exact `GET`/`HEAD /api/health` strips `/api` and goes to `tasks-api` `/health` without auth.
+1. Exact `/api/mcp` and `/api/mcp/*` go to agentgateway.
+1. Exact `/api` and `/api/*` use oauth2-proxy auth checks, strip `/api`, and return `401/403`.
+1. `/` uses oauth2-proxy auth checks and sends unauthenticated browsers to `/oauth2/start`.
 
 Do not use `/mcp*` or `/api/mcp*`. Use exact and prefix matches only.
 
@@ -133,7 +133,13 @@ Future external API clients should get explicit bearer-auth routes, separate hos
 - `mcp` client scope carrying the MCP audience and group claim for dynamically registered MCP clients.
 - Group claim mappers and audience mappers.
 
-The realm default access-token lifespan is set from `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` and defaults to one year. This intentionally gives dynamically registered MCP clients a long `expires_in` value, avoiding known MCP client re-authentication bugs when short-lived or missing-expiry OAuth tokens age out. The `oauth2-proxy-tasks` client is explicitly pinned back to `OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS` (default five minutes), so browser/API auth does not inherit the long MCP/DCR lifetime.
+The realm default access-token lifespan is set from `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` and defaults to one year. This is intentional for MCP/DCR clients: several current MCP clients have long-standing refresh or expired-token re-authentication bugs, so short-lived MCP access tokens can break otherwise valid integrations. Do not treat this default as an accidental production-hardening gap unless the MCP client ecosystem behavior changes. The `oauth2-proxy-tasks` client is explicitly pinned back to `OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS` (default five minutes), so browser/API auth does not inherit the long MCP/DCR lifetime.
+
+Context:
+
+- https://github.com/anthropics/claude-code/issues/26281
+- https://github.com/axiomhq/mcp/pull/63
+- https://github.com/Doist/todoist-mcp/issues/400#issuecomment-4096763597
 
 Create users in Keycloak and assign groups before testing login.
 
@@ -151,7 +157,7 @@ The protected-resource metadata route is:
 https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
 ```
 
-MCP access tokens must include audience `https://api.tasks.${DOMAIN}/mcp` and group `/mcp-users`. Dynamically registered MCP clients should request the `mcp` scope, which carries the required audience and groups mapper. Tokens also default to a long one-year `expires_in` via `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` for compatibility with MCP clients that mishandle token refresh or expired-token re-auth. The external `/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint at `/api/mcp`. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required. Validate full MCP initialize/session behavior with Claude, ChatGPT custom MCPs, or an MCP inspector.
+MCP access tokens must include audience `https://api.tasks.${DOMAIN}/mcp` and group `/mcp-users`. Dynamically registered MCP clients should request the `mcp` scope, which carries the required audience and groups mapper. Tokens intentionally default to a long one-year `expires_in` via `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` because current MCP clients can mishandle token refresh or expired-token re-auth. The external `/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint at `/api/mcp`. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required. Validate full MCP initialize/session behavior with Claude, ChatGPT custom MCPs, or an MCP inspector.
 
 The MCP auth policy pattern is intended for all MCP resources, including future apps. Each MCP resource still needs its own exact OAuth protected-resource metadata path, `resource` URI, token audience, backend target, and any app-specific route match. Keep the shared requirements the same unless deliberately changed: strict MCP auth, issuer/JWKS validation, audience validation, `/mcp-users`, spoofed-header stripping, and no bearer-token forwarding to app APIs.
 

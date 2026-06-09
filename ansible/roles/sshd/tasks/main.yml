@@ -1,0 +1,14 @@
+---
+- name: Install SSH hardening drop-in
+  ansible.builtin.template:
+    src: 99-home-stack-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-home-stack-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Validate and reload ssh
+- name: Enable and start ssh
+  ansible.builtin.systemd:
+    name: ssh
+    enabled: true
+    state: started

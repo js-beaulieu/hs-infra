@@ -14,7 +14,9 @@ def test_metadata_endpoint_returns_200_with_required_fields(http_client, flow_en
     assert "header" in payload.get("bearer_methods_supported", [])
 
 
-def test_metadata_resource_uri_matches_the_configured_mcp_resource_exactly(http_client, flow_env):
+def test_metadata_resource_uri_matches_the_configured_mcp_resource_exactly(
+    http_client, flow_env
+):
     res = http_client.get(flow_env.mcp_metadata)
     assert res.status_code == 200
     payload = res.json()
@@ -30,7 +32,9 @@ def test_as_metadata_endpoint_returns_200_with_required_fields(http_client, flow
     assert payload.get("token_endpoint") is not None
 
 
-def test_dcr_endpoint_registers_a_new_public_mcp_client_and_returns_client_id(http_client, flow_env):
+def test_dcr_endpoint_registers_a_new_public_mcp_client_and_returns_client_id(
+    http_client, flow_env
+):
     res = http_client.post(
         flow_env.mcp_dcr,
         headers={"Content-Type": "application/json"},
@@ -67,7 +71,9 @@ def test_dcr_rejects_registration_with_disallowed_scope(http_client, flow_env):
     assert res.status_code in {400, 403}
 
 
-def test_mcp_request_without_token_returns_401_with_www_authenticate(http_client, flow_env):
+def test_mcp_request_without_token_returns_401_with_www_authenticate(
+    http_client, flow_env
+):
     res = http_client.get(flow_env.mcp_resource, headers={"Accept": MCP_GET_ACCEPT})
     assert res.status_code == 401
     assert res.headers.get("www-authenticate")
@@ -87,7 +93,9 @@ def test_browser_sso_cookies_alone_do_not_authorize_mcp(browser, flow_env):
     try:
         page = context.new_page()
         page.goto("about:blank")
-        res = context.request.get(flow_env.mcp_resource, headers={"Accept": MCP_GET_ACCEPT})
+        res = context.request.get(
+            flow_env.mcp_resource, headers={"Accept": MCP_GET_ACCEPT}
+        )
         assert res.status == 401
     finally:
         context.close()
@@ -105,7 +113,10 @@ def test_invalid_bearer_token_returns_401(http_client, flow_env):
 def test_wrong_audience_token_returns_401(http_client, flow_env):
     res = http_client.get(
         flow_env.mcp_resource,
-        headers={"Authorization": f"Bearer {flow_env.mcp_token_wrong_aud}", "Accept": MCP_GET_ACCEPT},
+        headers={
+            "Authorization": f"Bearer {flow_env.mcp_token_wrong_aud}",
+            "Accept": MCP_GET_ACCEPT,
+        },
     )
     assert res.status_code == 401
 
@@ -113,7 +124,10 @@ def test_wrong_audience_token_returns_401(http_client, flow_env):
 def test_expired_token_returns_401(http_client, flow_env):
     res = http_client.get(
         flow_env.mcp_resource,
-        headers={"Authorization": f"Bearer {flow_env.mcp_token_expired}", "Accept": MCP_GET_ACCEPT},
+        headers={
+            "Authorization": f"Bearer {flow_env.mcp_token_expired}",
+            "Accept": MCP_GET_ACCEPT,
+        },
     )
     assert res.status_code == 401
     assert res.headers.get("www-authenticate")
@@ -122,7 +136,10 @@ def test_expired_token_returns_401(http_client, flow_env):
 def test_valid_token_missing_mcp_users_group_returns_403(http_client, flow_env):
     res = http_client.get(
         flow_env.mcp_resource,
-        headers={"Authorization": f"Bearer {flow_env.mcp_token_missing_group}", "Accept": MCP_GET_ACCEPT},
+        headers={
+            "Authorization": f"Bearer {flow_env.mcp_token_missing_group}",
+            "Accept": MCP_GET_ACCEPT,
+        },
     )
     assert res.status_code == 403
 
@@ -130,7 +147,10 @@ def test_valid_token_missing_mcp_users_group_returns_403(http_client, flow_env):
 def test_valid_mcp_token_passes_auth_on_get_422_session_required(http_client, flow_env):
     res = http_client.get(
         flow_env.mcp_resource,
-        headers={"Authorization": f"Bearer {flow_env.mcp_token_valid}", "Accept": MCP_GET_ACCEPT},
+        headers={
+            "Authorization": f"Bearer {flow_env.mcp_token_valid}",
+            "Accept": MCP_GET_ACCEPT,
+        },
     )
     assert res.status_code == 422
 
@@ -157,8 +177,12 @@ def test_valid_mcp_token_initializes_session_via_post(http_client, flow_env):
     assert res.status_code == 200
 
 
-def test_mcpfoo_does_not_match_mcp_route_and_has_no_mcp_www_authenticate(http_client, flow_env):
-    res = http_client.get(f"{flow_env.mcp_resource}foo", headers={"Accept": MCP_GET_ACCEPT})
+def test_mcpfoo_does_not_match_mcp_route_and_has_no_mcp_www_authenticate(
+    http_client, flow_env
+):
+    res = http_client.get(
+        f"{flow_env.mcp_resource}foo", headers={"Accept": MCP_GET_ACCEPT}
+    )
     www_auth = res.headers.get("www-authenticate")
     if res.status_code == 401:
         assert not www_auth

@@ -1,0 +1,14 @@
+---
+# ansible_ssh_private_key_file cannot be templated from group_vars.
+# Set the literal path here. This file is gitignored.
+# For production, the CI workflow writes the key to ~/.ssh/home-stack-production.
+home_stack:
+  hosts:
+    local-debian13-vm:
+      ansible_host: 127.0.0.1
+      ansible_port: 2222
+      ansible_user: debian
+      ansible_ssh_private_key_file: ~/.ssh/local-vm-ed25519
+      ansible_ssh_common_args: >-
+        -o StrictHostKeyChecking=no
+        -o UserKnownHostsFile=/dev/null

@@ -10,7 +10,9 @@ from tests.flows.flow_env import FlowEnv
 
 def navigate_to_login(page: Page, target_url: str, env: FlowEnv) -> None:
     page.goto(target_url)
-    page.wait_for_url(lambda url: str(url).startswith(env.keycloak_origin), timeout=15000)
+    page.wait_for_url(
+        lambda url: str(url).startswith(env.keycloak_origin), timeout=15000
+    )
 
 
 def perform_keycloak_login(page: Page, username: str, password: str) -> None:

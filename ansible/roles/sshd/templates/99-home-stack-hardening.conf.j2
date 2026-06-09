@@ -1,0 +1,8 @@
+Port {{ home_stack_ssh_port }}
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+PermitEmptyPasswords no
+X11Forwarding no
+AllowUsers {{ home_stack_ssh_allow_users | join(' ') }}

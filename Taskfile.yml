@@ -76,17 +76,28 @@ tasks:
   lint:sh:
     desc: Shellcheck scripts
     cmds:
-      - shellcheck --severity=warning keycloak/bootstrap.sh agentgateway/bootstrap.sh postgres/bootstrap.sh scripts/run-flow-tests.sh
+      - |
+        uv run shellcheck --severity=warning \
+          keycloak/bootstrap.sh \
+          agentgateway/bootstrap.sh \
+          postgres/bootstrap.sh \
+          scripts/run-flow-tests.sh
 
   format:
-    desc: Check formatting with Prettier
+    desc: Check formatting (Python, YAML, Markdown)
     cmds:
-      - npx prettier --check .
+      - uv run ruff format --check .
+      - uv run ruff check .
+      - uv run yamlfix --check ansible/
+      - uv run mdformat --check *.md
 
   format:write:
-    desc: Format with Prettier (write)
+    desc: Format files in-place (Python, YAML, Markdown)
     cmds:
-      - npx prettier --write .
+      - uv run ruff format .
+      - uv run ruff check --fix .
+      - uv run yamlfix ansible/
+      - uv run mdformat *.md
 
   ci:
     desc: Run test, lint, and format

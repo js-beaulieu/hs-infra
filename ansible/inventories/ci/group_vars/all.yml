@@ -1,0 +1,50 @@
+---
+home_stack_admin_user: debian
+home_stack_deploy_user: deploy
+home_stack_deploy_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDOCUMENTATIONONLY000000000000000000000000
+    example-key
+home_stack_timezone: Etc/UTC
+home_stack_ssh_port: 22
+home_stack_admin_cidrs: [127.0.0.1/32]
+home_stack_firewall_web_exposure: direct
+home_stack_cloudflare_cidrs: []
+home_stack_firewall_extra_web_cidrs: []
+home_stack_app_dir: /opt/home-stack
+home_stack_compose_file: docker/compose.yml
+home_stack_env_file: /home/deploy/home-stack.env
+home_stack_release_file: /home/deploy/home-stack.release
+home_stack_source_mode: git
+home_stack_git_repo: https://github.com/example/home-stack.git
+home_stack_git_version: main
+home_stack_domain: example.invalid
+home_stack_acme_email: admin@example.invalid
+home_stack_public_auth_origin: https://auth.{{ home_stack_domain }}
+home_stack_public_web_origin: https://tasks.{{ home_stack_domain }}
+home_stack_public_api_origin: https://api.tasks.{{ home_stack_domain }}
+home_stack_mcp_resource_uri: '{{ home_stack_public_api_origin }}/mcp'
+home_stack_caddy_tls_directive: ''
+home_stack_caddy_http_port: 80
+home_stack_caddy_https_port: 443
+home_stack_caddy_trusted_proxies: [127.0.0.1/32, '::1/128']
+home_stack_keycloak_admin_remote_ip_ranges: [private_ranges]
+home_stack_keycloak_admin_client_ip_ranges: '{{ home_stack_admin_cidrs }}'
+home_stack_keycloak_admin_username: admin
+home_stack_keycloak_admin_password: ci-only-keycloak-admin-password
+home_stack_keycloak_db_name: keycloak
+home_stack_keycloak_db_user: keycloak
+home_stack_keycloak_db_password: ci-only-keycloak-db-password
+home_stack_oauth2_proxy_client_secret: ci-only-oauth-client-secret
+home_stack_oauth2_proxy_cookie_secret: ci-only-cookie-secret-ci-only-cookie-secret-12345678
+home_stack_tasks_db_name: tasks
+home_stack_tasks_db_user: tasks
+home_stack_tasks_db_password: ci-only-tasks-db-password
+home_stack_mcp_access_token_lifespan_seconds: 31536000
+home_stack_oauth2_proxy_access_token_lifespan_seconds: 300
+home_stack_oauth2_proxy_provider_ca_files: ''
+home_stack_oauth2_proxy_whitelist_domains: .{{ home_stack_domain }}
+home_stack_agentgateway_ssl_cert_file: ''
+home_stack_run_health_checks: false
+home_stack_health_check_url: '{{ home_stack_public_api_origin }}/health'
+home_stack_health_check_validate_certs: true
+home_stack_hide_secrets: true

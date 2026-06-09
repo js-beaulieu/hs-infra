@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+apply_rules() {
+  tool="$1"
+  shift
+
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  "$tool" -N DOCKER-USER 2>/dev/null || true
+  "$tool" -F DOCKER-USER
+
+{% if home_stack_firewall_web_exposure == 'cloudflare' %}
+{% for cidr in (home_stack_cloudflare_cidrs + home_stack_firewall_extra_web_cidrs) %}
+{% if ':' not in cidr %}
+  [ "$tool" = "iptables" ] && "$tool" -A DOCKER-USER -p tcp -m multiport --dports 80,443 -s {{ cidr }} -j RETURN
+{% else %}
+  [ "$tool" = "ip6tables" ] && "$tool" -A DOCKER-USER -p tcp -m multiport --dports 80,443 -s {{ cidr }} -j RETURN
+{% endif %}
+{% endfor %}
+  "$tool" -A DOCKER-USER -p tcp -m multiport --dports 80,443 -j DROP
+{% endif %}
+  "$tool" -A DOCKER-USER -j RETURN
+}
+
+apply_rules iptables
+apply_rules ip6tables

@@ -103,14 +103,22 @@ class FlowEnv:
             mcp_dcr=f"{api_base}/.well-known/oauth-authorization-server/mcp/client-registration",
             oauth2_base=require_var("OAUTH2_BASE"),
             keycloak_origin=keycloak_origin_for(web_origin),
-            test_user_username=test_user.get("username") or os.environ.get("TEST_USER_USERNAME", ""),
-            test_user_password=test_user.get("password") or os.environ.get("TEST_USER_PASSWORD", ""),
-            test_denied_user_username=denied_user.get("username") or os.environ.get("TEST_DENIED_USER_USERNAME", ""),
-            test_denied_user_password=denied_user.get("password") or os.environ.get("TEST_DENIED_USER_PASSWORD", ""),
-            mcp_token_valid=os.environ.get("MCP_TOKEN_VALID") or generated_tokens.get("MCP_TOKEN_VALID", ""),
-            mcp_token_wrong_aud=os.environ.get("MCP_TOKEN_WRONG_AUD") or generated_tokens.get("MCP_TOKEN_WRONG_AUD", ""),
-            mcp_token_expired=os.environ.get("MCP_TOKEN_EXPIRED") or generated_tokens.get("MCP_TOKEN_EXPIRED", ""),
-            mcp_token_missing_group=os.environ.get("MCP_TOKEN_MISSING_GROUP") or generated_tokens.get("MCP_TOKEN_MISSING_GROUP", ""),
+            test_user_username=test_user.get("username")
+            or os.environ.get("TEST_USER_USERNAME", ""),
+            test_user_password=test_user.get("password")
+            or os.environ.get("TEST_USER_PASSWORD", ""),
+            test_denied_user_username=denied_user.get("username")
+            or os.environ.get("TEST_DENIED_USER_USERNAME", ""),
+            test_denied_user_password=denied_user.get("password")
+            or os.environ.get("TEST_DENIED_USER_PASSWORD", ""),
+            mcp_token_valid=os.environ.get("MCP_TOKEN_VALID")
+            or generated_tokens.get("MCP_TOKEN_VALID", ""),
+            mcp_token_wrong_aud=os.environ.get("MCP_TOKEN_WRONG_AUD")
+            or generated_tokens.get("MCP_TOKEN_WRONG_AUD", ""),
+            mcp_token_expired=os.environ.get("MCP_TOKEN_EXPIRED")
+            or generated_tokens.get("MCP_TOKEN_EXPIRED", ""),
+            mcp_token_missing_group=os.environ.get("MCP_TOKEN_MISSING_GROUP")
+            or generated_tokens.get("MCP_TOKEN_MISSING_GROUP", ""),
             keycloak_admin_username=os.environ.get("KEYCLOAK_ADMIN_USERNAME", ""),
             keycloak_admin_password=os.environ.get("KEYCLOAK_ADMIN_PASSWORD", ""),
         )

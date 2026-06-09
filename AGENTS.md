@@ -39,7 +39,7 @@ task ci             # run test, lint, format in parallel
 - Keycloak bootstrap is idempotent — runs every start, creates realm/clients/groups/mappers if missing.
 - Agentgateway config is rendered from `docker/agentgateway/config.yaml.tmpl` by `agentgateway-bootstrap` at startup; `docker/agentgateway/config.yaml` is gitignored.
 - oauth2-proxy must NOT set `user_id_claim` — an oauth2-proxy bug causes email claim corruption when it's set explicitly.
-- MCP access tokens default to 1-year lifespan (`MCP_ACCESS_TOKEN_LIFESPAN_SECONDS`) to avoid MCP client re-auth bugs; oauth2-proxy tokens stay at 5 minutes.
+- MCP access tokens intentionally default to 1-year lifespan (`MCP_ACCESS_TOKEN_LIFESPAN_SECONDS`) to work around long-standing MCP client refresh/re-auth bugs; oauth2-proxy tokens stay at 5 minutes. Do not flag this as an accidental production-readiness issue unless the user asks to revisit the MCP compatibility tradeoff. Context: https://github.com/anthropics/claude-code/issues/26281, https://github.com/axiomhq/mcp/pull/63, https://github.com/Doist/todoist-mcp/issues/400#issuecomment-4096763597.
 
 ## Style
 

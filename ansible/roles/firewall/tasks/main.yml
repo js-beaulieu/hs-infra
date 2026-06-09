@@ -1,0 +1,77 @@
+---
+- name: Install firewall packages
+  ansible.builtin.apt:
+    name: [iptables, ufw]
+    state: present
+- name: Require at least one SSH admin CIDR before enabling UFW
+  ansible.builtin.assert:
+    that:
+      - home_stack_admin_cidrs | length > 0
+    fail_msg: home_stack_admin_cidrs must include at least one CIDR before UFW can be enabled.
+- name: Reset UFW defaults to deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+- name: Set UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+- name: Allow SSH from admin CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    from_ip: '{{ item }}'
+    to_port: '{{ home_stack_ssh_port }}'
+  loop: '{{ home_stack_admin_cidrs }}'
+- name: Allow direct public HTTP and HTTPS
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    to_port: '{{ item }}'
+  loop: ['80', '443']
+  when: home_stack_firewall_web_exposure == "direct"
+- name: Allow proxied HTTP and HTTPS from trusted edge CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    from_ip: '{{ item.0 }}'
+    to_port: '{{ item.1 }}'
+  loop: "{{ (home_stack_cloudflare_cidrs + home_stack_firewall_extra_web_cidrs) | product(['80', '443']) | list }}"
+  when: home_stack_firewall_web_exposure == "cloudflare"
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+- name: Install Docker published-port firewall script
+  ansible.builtin.template:
+    src: home-stack-firewall-docker-user.j2
+    dest: /usr/local/sbin/home-stack-firewall-docker-user
+    owner: root
+    group: root
+    mode: '0755'
+  when: home_stack_firewall_manage_docker_user_chain
+  notify: Apply Docker user firewall rules
+- name: Install Docker published-port firewall service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/home-stack-firewall-docker-user.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Apply home-stack Docker published-port firewall rules
+      After=docker.service
+      Requires=docker.service
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/home-stack-firewall-docker-user
+      RemainAfterExit=yes
+      [Install]
+      WantedBy=multi-user.target
+  when: home_stack_firewall_manage_docker_user_chain
+- name: Enable Docker published-port firewall service
+  ansible.builtin.systemd:
+    name: home-stack-firewall-docker-user.service
+    enabled: true
+    daemon_reload: true
+    state: started
+  when: home_stack_firewall_manage_docker_user_chain

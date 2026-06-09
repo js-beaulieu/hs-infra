@@ -8,6 +8,7 @@ certs/*.jks
 !certs/.gitkeep
 agentgateway/config.yaml
 .venv/
+.ansible/
 __pycache__/
 *.py[cod]
 test-results/
@@ -16,3 +17,10 @@ tests/flows/.generated-users.json
 tests/flows/.generated-tokens.json
 tests/flows/.testcontainers-*.env
 tests/flows/.testcontainers-state.json
+.vault-pass
+ansible/inventories/production/hosts.yml
+ansible/inventories/production/group_vars/all.yml
+ansible/inventories/production/group_vars/vault.yml
+ansible/inventories/local-vm/hosts.yml
+ansible/inventories/local-vm/group_vars/all.yml
+ansible/inventories/local-vm/group_vars/vault.yml

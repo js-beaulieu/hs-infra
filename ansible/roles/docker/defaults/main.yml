@@ -1,0 +1,3 @@
+---
+home_stack_docker_apt_release: '{{ ansible_facts.distribution_release }}'
+home_stack_users_without_docker_group: ['{{ home_stack_deploy_user }}']

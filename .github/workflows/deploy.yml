@@ -1,0 +1,145 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install project runtime dependencies
+        run: uv sync --locked --no-dev
+
+      - name: Install Ansible collections
+        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Configure SSH
+        env:
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/home-stack-production
+          chmod 600 ~/.ssh/home-stack-production
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Generate production inventory
+        env:
+          PROD_VPS_HOST: ${{ vars.PROD_VPS_HOST }}
+          PROD_VPS_SSH_PORT: ${{ vars.PROD_VPS_SSH_PORT }}
+          PROD_ADMIN_USER: ${{ vars.PROD_ADMIN_USER }}
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+          PROD_GIT_REPO: ${{ vars.PROD_GIT_REPO }}
+          PROD_GIT_VERSION: ${{ github.sha }}
+          PROD_DOMAIN: ${{ vars.PROD_DOMAIN }}
+          PROD_ACME_EMAIL: ${{ vars.PROD_ACME_EMAIL }}
+          PROD_PUBLIC_AUTH_ORIGIN: ${{ vars.PROD_PUBLIC_AUTH_ORIGIN }}
+          PROD_PUBLIC_WEB_ORIGIN: ${{ vars.PROD_PUBLIC_WEB_ORIGIN }}
+          PROD_PUBLIC_API_ORIGIN: ${{ vars.PROD_PUBLIC_API_ORIGIN }}
+          PROD_MCP_RESOURCE_URI: ${{ vars.PROD_MCP_RESOURCE_URI }}
+          PROD_CADDY_TLS_DIRECTIVE: ${{ vars.PROD_CADDY_TLS_DIRECTIVE }}
+          PROD_CADDY_TRUSTED_PROXIES: ${{ vars.PROD_CADDY_TRUSTED_PROXIES }}
+          PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES: ${{ vars.PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES }}
+          PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES: ${{ vars.PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES }}
+          PROD_OAUTH2_PROXY_WHITELIST_DOMAINS: ${{ vars.PROD_OAUTH2_PROXY_WHITELIST_DOMAINS }}
+          PROD_KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.PROD_KEYCLOAK_ADMIN_PASSWORD }}
+          PROD_KEYCLOAK_DB_PASSWORD: ${{ secrets.PROD_KEYCLOAK_DB_PASSWORD }}
+          PROD_OAUTH2_PROXY_CLIENT_SECRET: ${{ secrets.PROD_OAUTH2_PROXY_CLIENT_SECRET }}
+          PROD_OAUTH2_PROXY_COOKIE_SECRET: ${{ secrets.PROD_OAUTH2_PROXY_COOKIE_SECRET }}
+          PROD_TASKS_DB_PASSWORD: ${{ secrets.PROD_TASKS_DB_PASSWORD }}
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def env(name, default=""):
+              return os.environ.get(name) or default
+
+          def list_env(name, default=""):
+              value = env(name, default)
+              return [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+
+          inventory = {
+              "home_stack": {
+                  "hosts": {
+                      "production-vps": {
+                          "ansible_host": env("PROD_VPS_HOST"),
+                          "ansible_port": int(env("PROD_VPS_SSH_PORT", "22")),
+                          "ansible_ssh_private_key_file": "~/.ssh/home-stack-production",
+                      }
+                  }
+              }
+          }
+
+          domain = env("PROD_DOMAIN")
+          public_auth_origin = env("PROD_PUBLIC_AUTH_ORIGIN", f"https://auth.{domain}")
+          public_web_origin = env("PROD_PUBLIC_WEB_ORIGIN", f"https://tasks.{domain}")
+          public_api_origin = env("PROD_PUBLIC_API_ORIGIN", f"https://api.tasks.{domain}")
+          deploy_user = env("PROD_DEPLOY_USER", "deploy")
+          group_vars = {
+              "home_stack_admin_user": env("PROD_ADMIN_USER", "debian"),
+              "home_stack_deploy_user": deploy_user,
+              "home_stack_ssh_port": int(env("PROD_VPS_SSH_PORT", "22")),
+              "home_stack_app_dir": "/opt/home-stack",
+              "home_stack_compose_file": "docker/compose.yml",
+              "home_stack_env_file": f"/home/{deploy_user}/home-stack.env",
+              "home_stack_release_file": f"/home/{deploy_user}/home-stack.release",
+              "home_stack_source_mode": "git",
+              "home_stack_git_repo": env("PROD_GIT_REPO"),
+              "home_stack_git_version": env("PROD_GIT_VERSION"),
+              "home_stack_domain": domain,
+              "home_stack_acme_email": env("PROD_ACME_EMAIL"),
+              "home_stack_public_auth_origin": public_auth_origin,
+              "home_stack_public_web_origin": public_web_origin,
+              "home_stack_public_api_origin": public_api_origin,
+              "home_stack_mcp_resource_uri": env("PROD_MCP_RESOURCE_URI", f"{public_api_origin}/mcp"),
+              "home_stack_caddy_tls_directive": env("PROD_CADDY_TLS_DIRECTIVE"),
+              "home_stack_caddy_http_port": 80,
+              "home_stack_caddy_https_port": 443,
+              "home_stack_caddy_trusted_proxies": list_env("PROD_CADDY_TRUSTED_PROXIES", "127.0.0.1/32,::1/128"),
+              "home_stack_keycloak_admin_remote_ip_ranges": list_env("PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES", "private_ranges"),
+              "home_stack_keycloak_admin_client_ip_ranges": list_env("PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES"),
+              "home_stack_keycloak_admin_username": "admin",
+              "home_stack_keycloak_admin_password": env("PROD_KEYCLOAK_ADMIN_PASSWORD"),
+              "home_stack_keycloak_db_name": "keycloak",
+              "home_stack_keycloak_db_user": "keycloak",
+              "home_stack_keycloak_db_password": env("PROD_KEYCLOAK_DB_PASSWORD"),
+              "home_stack_oauth2_proxy_client_secret": env("PROD_OAUTH2_PROXY_CLIENT_SECRET"),
+              "home_stack_oauth2_proxy_cookie_secret": env("PROD_OAUTH2_PROXY_COOKIE_SECRET"),
+              "home_stack_oauth2_proxy_provider_ca_files": "",
+              "home_stack_oauth2_proxy_whitelist_domains": env("PROD_OAUTH2_PROXY_WHITELIST_DOMAINS", f".{domain}"),
+              "home_stack_agentgateway_ssl_cert_file": "",
+              "home_stack_tasks_db_name": "tasks",
+              "home_stack_tasks_db_user": "tasks",
+              "home_stack_tasks_db_password": env("PROD_TASKS_DB_PASSWORD"),
+              "home_stack_mcp_access_token_lifespan_seconds": 31536000,
+              "home_stack_oauth2_proxy_access_token_lifespan_seconds": 300,
+              "home_stack_run_health_checks": True,
+              "home_stack_health_check_url": f"{public_api_origin}/health",
+              "home_stack_health_check_validate_certs": True,
+              "home_stack_hide_secrets": True,
+          }
+
+          base = Path("ansible/inventories/production")
+          (base / "group_vars").mkdir(parents=True, exist_ok=True)
+          (base / "hosts.yml").write_text(json.dumps(inventory, indent=2) + "\n")
+          (base / "group_vars" / "all.yml").write_text(json.dumps(group_vars, indent=2) + "\n")
+          PY
+
+      - name: Deploy stack
+        run: uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/playbooks/deploy.yml

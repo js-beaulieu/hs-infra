@@ -1,0 +1,10 @@
+---
+- name: Deploy home-stack application
+  hosts: home_stack
+  gather_facts: true
+  remote_user: '{{ home_stack_deploy_user }}'
+  tasks:
+    - name: Deploy stack
+      ansible.builtin.import_role:
+        name: stack
+        tasks_from: deploy

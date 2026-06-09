@@ -1,0 +1,4 @@
+---
+- name: Validate and reload ssh
+  ansible.builtin.shell: /usr/sbin/sshd -t && /usr/bin/systemctl reload ssh
+  changed_when: true

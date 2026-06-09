@@ -1,0 +1,12 @@
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1{% for cidr in home_stack_admin_cidrs %} {{ cidr }}{% endfor %}
+bantime = {{ home_stack_fail2ban_bantime }}
+findtime = {{ home_stack_fail2ban_findtime }}
+maxretry = {{ home_stack_fail2ban_maxretry }}
+
+[sshd]
+enabled = true
+mode = normal
+port = ssh
+logpath = %(sshd_log)s
+backend = systemd

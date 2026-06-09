@@ -1,0 +1,7 @@
+---
+home_stack_ssh_port: 22
+home_stack_admin_cidrs: []
+home_stack_firewall_web_exposure: direct
+home_stack_cloudflare_cidrs: []
+home_stack_firewall_extra_web_cidrs: []
+home_stack_firewall_manage_docker_user_chain: true

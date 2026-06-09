@@ -73,27 +73,27 @@ Implement these route behaviors in this order.
 
    Public oauth2-proxy endpoints for start, sign-in, callback, and auth check. These must be reachable before browser auth is enforced.
 
-2. MCP OAuth metadata routes
+1. MCP OAuth metadata routes
 
    Public metadata required by MCP/OAuth clients, routed to agentgateway. These routes must not browser-redirect. At minimum include exact path `/.well-known/oauth-protected-resource/mcp`. If using agentgateway's authorization-server proxy mode for Keycloak compatibility, also include exact paths `/.well-known/oauth-authorization-server/mcp` and `/.well-known/oauth-authorization-server/mcp/client-registration`.
 
-3. `/health`
+1. `/health`
 
    Public. Exact path only. Prefer `GET` and `HEAD` only.
 
-4. `/mcp` and `/mcp/*`
+1. `/mcp` and `/mcp/*`
 
    Protected by MCP OAuth/JWT handling via agentgateway. Must not browser-redirect. Return proper `401/403` for missing or invalid credentials, including `WWW-Authenticate` and MCP protected-resource metadata behavior.
 
-5. `/`
+1. `/`
 
    Exact path. Protected like the normal API. Must not fall through to the browser route. Return `401/403`, not `302`.
 
-6. `/*`
+1. `/*`
 
    Protected by oauth2-proxy/Caddy auth check. Must not browser-redirect. Return `401/403`.
 
-7. `tasks.${DOMAIN}/`
+1. `tasks.${DOMAIN}/`
 
    Browser login required. Unauthenticated browser users redirect through oauth2-proxy and Keycloak.
 
@@ -102,21 +102,32 @@ Do not use `/mcp*`; it matches unwanted paths like `/mcpfoo`. Temporary compatib
 ## Caddy Requirements
 
 - Only Caddy publishes host ports `80` and `443`.
+
 - Use `handle` or `route` blocks so route behavior is unambiguous.
+
 - Route `auth.${DOMAIN}` to Keycloak over the private `auth` network, but expose only required public Keycloak paths.
+
 - On `auth.${DOMAIN}`, publicly route only OIDC/realm/frontend paths required for login and clients, such as `/.well-known/*`, `/realms/*`, and `/resources/*`.
+
 - On `auth.${DOMAIN}`, block or allowlist admin and management paths such as `/admin/*`, `/metrics`, `/health`, and any Keycloak management endpoint. Do not rely on `KC_HOSTNAME_ADMIN` as access control.
+
 - If the VPS is behind Cloudflare proxy, Keycloak admin allowlisting must enforce two conditions at Caddy: the direct peer `remote_ip` is a valid Cloudflare edge CIDR, and the derived real client `client_ip` is in our admin allowlist.
+
 - Configure Caddy global `servers` with Cloudflare edge CIDRs as `trusted_proxies`, enable `trusted_proxies_strict`, and set `client_ip_headers CF-Connecting-IP X-Forwarded-For` or the chosen Cloudflare client-IP header policy. Then use Caddy's `client_ip` matcher for the underlying user/admin IP and `remote_ip` matcher for the Cloudflare edge source.
+
 - The standard Caddy build supports static `trusted_proxies` lists. If automatic Cloudflare CIDR updates are required, use a custom Caddy build with a Cloudflare trusted-proxy module such as `github.com/WeidiDeng/caddy-cloudflare-ip`; otherwise generate/update the static CIDR list from Cloudflare's published `ips-v4` and `ips-v6` endpoints.
+
 - Do not trust `CF-Connecting-IP`, `X-Forwarded-For`, or similar client-supplied headers from arbitrary peers. Prefer also firewalling the VPS origin so ports `80` and `443` accept traffic only from Cloudflare edge CIDRs and any explicit private management network.
+
 - Authoritative references for the Cloudflare trusted IP setup:
+
   - Caddy `trusted_proxies`, `trusted_proxies_strict`, and `client_ip_headers`: `https://caddyserver.com/docs/caddyfile/options#trusted-proxies`.
   - Caddy `client_ip` matcher for the derived real client IP: `https://caddyserver.com/docs/caddyfile/matchers#client-ip`.
   - Caddy `remote_ip` matcher for the immediate peer IP: `https://caddyserver.com/docs/caddyfile/matchers#remote-ip`.
   - Cloudflare IP ranges: `https://www.cloudflare.com/ips/`, `https://www.cloudflare.com/ips-v4`, and `https://www.cloudflare.com/ips-v6`.
   - Cloudflare origin firewall guidance: `https://developers.cloudflare.com/fundamentals/concepts/cloudflare-ip-addresses/`.
   - Cloudflare `CF-Connecting-IP` header behavior: `https://developers.cloudflare.com/fundamentals/reference/http-request-headers/#cf-connecting-ip`.
+
 - The Keycloak admin Caddyfile shape must follow this model, with the full current Cloudflare CIDR list expanded in place of `CLOUDFLARE_EDGE_CIDRS` and our admin CIDRs expanded in place of `ADMIN_ALLOWED_CIDRS`:
 
   ```caddyfile
@@ -150,20 +161,35 @@ Do not use `/mcp*`; it matches unwanted paths like `/mcpfoo`. Temporary compatib
    	# Public realm/OIDC/resource handlers go here; do not broadly proxy all Keycloak paths.
   }
   ```
+
 - Route `api.tasks.${DOMAIN}/oauth2/*` directly to oauth2-proxy.
+
 - Route MCP OAuth protected-resource metadata paths on `api.tasks.${DOMAIN}` directly to agentgateway. Include exact `/.well-known/oauth-protected-resource/mcp` and, if enabled in agentgateway, exact `/.well-known/oauth-authorization-server/mcp` and `/.well-known/oauth-authorization-server/mcp/client-registration`.
+
 - Route exact `/health` to `tasks-api` without auth.
+
 - Route exact `/mcp` and `/mcp/*` to agentgateway, preserving the client `Authorization` header only as far as agentgateway.
+
 - Route exact `/` and `/*` through an oauth2-proxy auth check, then to `tasks-api`.
+
 - Route `tasks.${DOMAIN}` browser `/` through an oauth2-proxy auth check, then to the frontend/app route. The frontend route is either `tasks-web` on the `tasks-web` network or a CDN/static origin; it must not proxy to `tasks-api`.
+
 - Keep backwards-compatible old routes on `tasks.${DOMAIN}` (`/api/health`, `/api/mcp`, `/api/*`) until fully decommissioned.
+
 - For browser `/`, use `forward_auth` against oauth2-proxy `/oauth2/auth` and explicitly convert auth-check `401` into a redirect to `/oauth2/start?rd=...`.
+
 - For canonical API routes on `api.tasks.${DOMAIN}`, use the same auth check but return `401/403`, not a browser login redirect. Temporary compatibility `/api` and `/api/*` routes on `tasks.${DOMAIN}` must preserve that same non-redirect behavior.
+
 - Strip inbound spoofable identity headers before proxying to oauth2-proxy, agentgateway, or any backend.
+
 - Strip inbound `Authorization` for browser and normal API routes unless a route is intentionally configured for bearer/API-client auth.
+
 - Do not strip `Authorization` before agentgateway on MCP routes.
+
 - Do not forward the client MCP bearer token from agentgateway to `tasks-api`.
+
 - Overwrite `X-Forwarded-*`/`Forwarded` headers consistently before sending traffic to Keycloak and oauth2-proxy.
+
 - Do not expose oauth2-proxy or agentgateway admin/private endpoints directly.
 
 ## Trusted Headers Contract
@@ -433,45 +459,83 @@ End-to-end flow verification must prove the three primary paths work and stay is
 ### Keycloak And Edge Verification
 
 - Confirm `https://auth.${DOMAIN}/realms/homelab/.well-known/openid-configuration` is reachable publicly and reports issuer `https://auth.${DOMAIN}/realms/homelab`.
+
 - Confirm oauth2-proxy and agentgateway containers can fetch that same issuer URL internally and receive the same public issuer value.
+
 - Confirm public Keycloak admin paths are blocked unless both checks pass: direct peer is a Cloudflare edge CIDR and derived `client_ip` is in `ADMIN_ALLOWED_CIDRS`.
+
 - Confirm direct-to-origin requests with spoofed `CF-Connecting-IP` or `X-Forwarded-For` cannot access admin paths.
+
 - Confirm non-admin clients through Cloudflare cannot access admin paths even though their direct peer is Cloudflare.
 
 - `docker compose --env-file .env -f docker/compose.yml config` validates Compose syntax.
+
 - Caddy config validation passes if the Caddy image/tooling is available.
+
 - oauth2-proxy config validation passes with `--config-test` if available.
+
 - `docker compose -f docker/compose.yml up` smoke test passes if allowed in the environment.
+
 - `curl -i https://api.tasks.${DOMAIN}/health` returns public health response.
+
 - `curl -i https://api.tasks.${DOMAIN}/health/extra` does not hit the public health route.
+
 - `curl -i https://tasks.${DOMAIN}/` returns browser login redirect when unauthenticated.
+
 - `curl -i https://api.tasks.${DOMAIN}/` returns `401/403`, not `302`, when unauthenticated.
+
 - `curl -i https://api.tasks.${DOMAIN}/something` returns `401/403`, not `302`, when unauthenticated.
+
 - `curl -i https://api.tasks.${DOMAIN}/mcp` returns MCP auth behavior, not `302`, when unauthenticated.
+
 - `curl -i https://api.tasks.${DOMAIN}/mcpfoo` does not match the MCP route.
+
 - `curl -i https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp` returns public MCP protected resource metadata, not a browser redirect.
+
 - MCP protected resource metadata contains `resource` exactly equal to `https://api.tasks.${DOMAIN}/mcp`.
+
 - MCP unauthenticated responses include `WWW-Authenticate` and protected-resource metadata behavior.
+
 - MCP metadata routes are reachable without browser redirects.
+
 - MCP Streamable HTTP works beyond a simple `GET`: test `POST` initialize, bearer auth on every request, streaming/SSE behavior, `Mcp-Session-Id`, and `MCP-Protocol-Version`.
+
 - MCP follow-up requests with `Mcp-Session-Id` but no `Authorization` are rejected, or agentgateway's connect-time exception is documented and accepted deliberately.
+
 - A real MCP access token contains the expected `iss`, `aud`, `groups`, and expiry claims, and agentgateway rejects tokens with the wrong audience or missing `/mcp-users`.
+
 - From oauth2-proxy and agentgateway containers, fetching `https://auth.${DOMAIN}/realms/homelab/.well-known/openid-configuration` succeeds and the returned issuer is `https://auth.${DOMAIN}/realms/homelab`.
+
 - Spoofed inbound identity headers are stripped and not passed through to APIs.
+
 - Browser/normal API routes strip inbound `Authorization` unless intentionally configured otherwise.
+
 - MCP routes pass client `Authorization` only to agentgateway, and agentgateway does not forward it to `tasks-api`.
+
 - Unsafe browser API methods without valid same-origin `Origin`/`Referer` are rejected.
+
 - Authenticated user without `/tasks-users` cannot access `tasks.${DOMAIN}`.
+
 - Authenticated MCP token without `/mcp-users` cannot access `/mcp`.
+
 - Keycloak admin paths are blocked from non-allowed source IPs/networks.
+
 - Keycloak admin paths are blocked unless the direct source IP is a Cloudflare edge CIDR and the verified underlying client IP is in `ADMIN_ALLOWED_CIDRS`.
+
 - Direct requests to the VPS origin IP with spoofed `CF-Connecting-IP` or `X-Forwarded-For` headers cannot access Keycloak admin paths.
+
 - Requests through Cloudflare from non-admin client IPs cannot access Keycloak admin paths even though their direct source is Cloudflare.
+
 - If origin firewalling is enabled, direct non-Cloudflare access to VPS ports `80` and `443` is blocked except explicit management networks.
+
 - Keycloak public exposure is limited to required OIDC/realm/resource paths; admin, health, and metrics paths are blocked or allowlisted.
+
 - DCR is either not enabled yet, or if enabled for Claude/ChatGPT MCP compatibility, is enabled only with strict client registration policies.
+
 - Backend service host ports are not published.
+
 - Every networked Compose service has explicit networks, offline one-shot services use `network_mode: none`, and no accidental shared default network is used.
+
 - Caddy and Keycloak Postgres persistent volumes are configured.
 
 ## Deliverables

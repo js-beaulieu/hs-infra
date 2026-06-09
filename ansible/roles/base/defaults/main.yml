@@ -1,0 +1,14 @@
+---
+home_stack_timezone: Etc/UTC
+home_stack_base_packages:
+  - ca-certificates
+  - curl
+  - debian-goodies
+  - git
+  - gnupg
+  - needrestart
+  - openssh-server
+  - python3
+  - sudo
+  - unattended-upgrades
+  - vim-tiny

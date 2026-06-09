@@ -1,0 +1,38 @@
+---
+- name: Ensure stack directory exists
+  ansible.builtin.file:
+    path: '{{ home_stack_app_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: home_stack_source_mode == "git"
+- name: Ensure existing Git stack checkout is root-owned
+  ansible.builtin.file:
+    path: '{{ home_stack_app_dir }}'
+    owner: root
+    group: root
+    mode: u=rwX,go=rX
+    recurse: true
+  when: home_stack_source_mode == "git"
+- name: Require Git source configuration for wrapper
+  ansible.builtin.assert:
+    that:
+      - home_stack_git_repo | length > 0
+    fail_msg: home_stack_git_repo is required when home_stack_source_mode=git.
+  when: home_stack_source_mode == "git"
+- name: Install root-owned stack deployment wrapper
+  ansible.builtin.template:
+    src: home-stack-deploy.j2
+    dest: /usr/local/sbin/home-stack-deploy
+    owner: root
+    group: root
+    mode: '0750'
+- name: Allow deploy user to run only the deployment wrapper
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/home-stack-{{ home_stack_deploy_user }}
+    owner: root
+    group: root
+    mode: '0440'
+    content: "{{ home_stack_deploy_user }} ALL=(root) NOPASSWD: /usr/local/sbin/home-stack-deploy\n"
+    validate: /usr/sbin/visudo -cf %s

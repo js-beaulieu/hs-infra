@@ -38,12 +38,17 @@ def get_free_port() -> int:
 
 
 def write_env_file(path: Path, values: dict[str, str]) -> None:
-    path.write_text("\n".join(f"{key}={value}" for key, value in values.items()) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(f"{key}={value}" for key, value in values.items()) + "\n",
+        encoding="utf-8",
+    )
 
 
 def wait_for_url(url: str, timeout_seconds: int = 120) -> None:
     deadline = time.monotonic() + timeout_seconds
-    with httpx.Client(verify=False, follow_redirects=True, timeout=10.0, trust_env=False) as client:
+    with httpx.Client(
+        verify=False, follow_redirects=True, timeout=10.0, trust_env=False
+    ) as client:
         while time.monotonic() < deadline:
             try:
                 response = client.get(url)
@@ -100,7 +105,9 @@ def start_testcontainers_stack() -> None:
     auth_origin = f"https://auth.{domain}:{https_port}"
     mcp_resource = f"{api_origin}/mcp"
     keycloak_admin_username = os.environ.get("KEYCLOAK_ADMIN_USERNAME", "admin")
-    keycloak_admin_password = os.environ.get("KEYCLOAK_ADMIN_PASSWORD", f"admin-{secrets.token_hex(6)}")
+    keycloak_admin_password = os.environ.get(
+        "KEYCLOAK_ADMIN_PASSWORD", f"admin-{secrets.token_hex(6)}"
+    )
     env_file = FLOW_DIR / f".testcontainers-{project_name}.env"
     compose_env_file = FLOW_DIR / f".testcontainers-{project_name}.compose.env"
 
@@ -110,8 +117,12 @@ def start_testcontainers_stack() -> None:
         "PUBLIC_WEB_ORIGIN": web_origin,
         "PUBLIC_API_ORIGIN": api_origin,
         "MCP_RESOURCE_URI": mcp_resource,
-        "MCP_ACCESS_TOKEN_LIFESPAN_SECONDS": os.environ.get("MCP_ACCESS_TOKEN_LIFESPAN_SECONDS", "31536000"),
-        "OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS": os.environ.get("OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS", "300"),
+        "MCP_ACCESS_TOKEN_LIFESPAN_SECONDS": os.environ.get(
+            "MCP_ACCESS_TOKEN_LIFESPAN_SECONDS", "31536000"
+        ),
+        "OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS": os.environ.get(
+            "OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS", "300"
+        ),
         "CADDY_HTTP_PORT": str(http_port),
         "CADDY_HTTPS_PORT": str(https_port),
         "ACME_EMAIL": "test@example.invalid",
@@ -134,7 +145,9 @@ def start_testcontainers_stack() -> None:
         "TASKS_DB_PASSWORD": f"tasks-{secrets.token_hex(12)}",
     }
 
-    print(f"Starting isolated Compose project {project_name} on https port {https_port}")
+    print(
+        f"Starting isolated Compose project {project_name} on https port {https_port}"
+    )
     write_env_file(compose_env_file, compose_env)
     try:
         with compose_environment(project_name):
@@ -164,7 +177,10 @@ def start_testcontainers_stack() -> None:
             "KEYCLOAK_CONTAINER_NAME": f"{project_name}-keycloak-1",
             "TEST_USER_PREFIX": os.environ.get("TEST_USER_PREFIX", "flowtest"),
             "TEST_USER_PASSWORD": os.environ.get("TEST_USER_PASSWORD", "ChangeMe123"),
-            "TEST_DENIED_USER_PASSWORD": os.environ.get("TEST_DENIED_USER_PASSWORD", os.environ.get("TEST_USER_PASSWORD", "ChangeMe123")),
+            "TEST_DENIED_USER_PASSWORD": os.environ.get(
+                "TEST_DENIED_USER_PASSWORD",
+                os.environ.get("TEST_USER_PASSWORD", "ChangeMe123"),
+            ),
             "MCP_TOKEN_VALID": os.environ.get("MCP_TOKEN_VALID", ""),
             "MCP_TOKEN_WRONG_AUD": os.environ.get("MCP_TOKEN_WRONG_AUD", ""),
             "MCP_TOKEN_EXPIRED": os.environ.get("MCP_TOKEN_EXPIRED", ""),
@@ -173,7 +189,14 @@ def start_testcontainers_stack() -> None:
     )
 
     STATE_PATH.write_text(
-        json.dumps({"projectName": project_name, "envFile": str(env_file), "composeEnvFile": str(compose_env_file)}, indent=2),
+        json.dumps(
+            {
+                "projectName": project_name,
+                "envFile": str(env_file),
+                "composeEnvFile": str(compose_env_file),
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
     os.environ["FLOW_TEST_ENV_FILE"] = str(env_file)

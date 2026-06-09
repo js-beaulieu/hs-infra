@@ -93,18 +93,18 @@ MCP flow:
 ### Phase 1: Baseline Current Behavior
 
 1. Add the flow test files and script listed above.
-2. Configure `tests/flows/current.env` locally from `current.env.example`.
-3. Run `scripts/run-flow-tests.sh tests/flows/current.env`.
-4. Fix current stack behavior only if tests reveal a real current bug.
-5. Repeat until the current URL shape is green.
-6. Freeze test logic after green; only URL variables may change for the migration.
+1. Configure `tests/flows/current.env` locally from `current.env.example`.
+1. Run `scripts/run-flow-tests.sh tests/flows/current.env`.
+1. Fix current stack behavior only if tests reveal a real current bug.
+1. Repeat until the current URL shape is green.
+1. Freeze test logic after green; only URL variables may change for the migration.
 
 ### Phase 2: Change Tests To New URLs Only
 
 1. Create `tests/flows/migrated.env` from `migrated.env.example`.
-2. Point `API_BASE`, `MCP_RESOURCE`, `MCP_METADATA`, and `OAUTH2_BASE` at `api.tasks.${DOMAIN}`.
-3. Do not change non-URL expectations.
-4. Run `scripts/run-flow-tests.sh tests/flows/migrated.env` and confirm failures are expected migration failures.
+1. Point `API_BASE`, `MCP_RESOURCE`, `MCP_METADATA`, and `OAUTH2_BASE` at `api.tasks.${DOMAIN}`.
+1. Do not change non-URL expectations.
+1. Run `scripts/run-flow-tests.sh tests/flows/migrated.env` and confirm failures are expected migration failures.
 
 ### Phase 3: Caddy Routing
 
@@ -208,32 +208,32 @@ Update `docker/tasks-web/index.html` if it remains in the repo.
 Run this loop after Phase 2.
 
 1. Run `docker compose --env-file .env -f docker/compose.yml config`.
-2. Run Caddy validation if the container/tooling is available.
-3. Start or restart the stack.
-4. Run `scripts/run-flow-tests.sh tests/flows/migrated.env`.
-5. Fix implementation files only.
-6. Do not modify tests except URL variables.
-7. If a non-URL test change appears necessary, stop and ask.
-8. Repeat until all flow tests pass.
+1. Run Caddy validation if the container/tooling is available.
+1. Start or restart the stack.
+1. Run `scripts/run-flow-tests.sh tests/flows/migrated.env`.
+1. Fix implementation files only.
+1. Do not modify tests except URL variables.
+1. If a non-URL test change appears necessary, stop and ask.
+1. Repeat until all flow tests pass.
 
 ## Acceptance Criteria
 
 1. The repo contains executable Playwright flow tests and a script that runs them.
-2. The tests first validate and lock in the current green flows for app login, API, and MCP using the current URL shape.
-3. The tests cover authenticated, unauthenticated, spoofed-header, invalid or expired credential, app login, normal API, and MCP flows.
-4. After the baseline is green, the only test changes for the migration are URL variables pointing to `api.tasks.${DOMAIN}` and `/mcp`.
-5. The implementation loop runs the migrated tests repeatedly until they pass.
-6. No test logic, assertions, status expectations, auth expectations, spoofing expectations, or security expectations are changed after the baseline is green without asking first.
-7. `tasks.${DOMAIN}` can be hosted by a CDN/static provider without proxying through the VPS for `/api` path routing.
-8. `api.tasks.${DOMAIN}` serves `/health`, normal API routes, `/mcp`, and MCP metadata through Caddy on the VPS.
-9. Browser API calls from `tasks.${DOMAIN}` to `api.tasks.${DOMAIN}` work only with strict allowed-origin CORS and credentials.
-10. Untrusted origins do not receive permissive credentialed CORS.
-11. Unsafe browser API methods are protected by gateway-level CSRF origin checks.
-12. Unauthenticated API requests return `401` or `403`, not browser login redirects.
-13. MCP requests never receive oauth2-proxy browser redirects.
-14. MCP protected-resource metadata advertises `resource` exactly equal to `https://api.tasks.${DOMAIN}/mcp`.
-15. Keycloak MCP audience mapper and agentgateway audience validation both use `https://api.tasks.${DOMAIN}/mcp`.
-16. Spoofed inbound identity headers are stripped before reaching backends.
-17. Browser API routes do not forward inbound `Authorization` headers.
-18. MCP bearer tokens are sent only to agentgateway and are not forwarded to `tasks-api`.
-19. Existing security controls for Keycloak admin exposure, trusted proxies, and private backend ports remain intact.
+1. The tests first validate and lock in the current green flows for app login, API, and MCP using the current URL shape.
+1. The tests cover authenticated, unauthenticated, spoofed-header, invalid or expired credential, app login, normal API, and MCP flows.
+1. After the baseline is green, the only test changes for the migration are URL variables pointing to `api.tasks.${DOMAIN}` and `/mcp`.
+1. The implementation loop runs the migrated tests repeatedly until they pass.
+1. No test logic, assertions, status expectations, auth expectations, spoofing expectations, or security expectations are changed after the baseline is green without asking first.
+1. `tasks.${DOMAIN}` can be hosted by a CDN/static provider without proxying through the VPS for `/api` path routing.
+1. `api.tasks.${DOMAIN}` serves `/health`, normal API routes, `/mcp`, and MCP metadata through Caddy on the VPS.
+1. Browser API calls from `tasks.${DOMAIN}` to `api.tasks.${DOMAIN}` work only with strict allowed-origin CORS and credentials.
+1. Untrusted origins do not receive permissive credentialed CORS.
+1. Unsafe browser API methods are protected by gateway-level CSRF origin checks.
+1. Unauthenticated API requests return `401` or `403`, not browser login redirects.
+1. MCP requests never receive oauth2-proxy browser redirects.
+1. MCP protected-resource metadata advertises `resource` exactly equal to `https://api.tasks.${DOMAIN}/mcp`.
+1. Keycloak MCP audience mapper and agentgateway audience validation both use `https://api.tasks.${DOMAIN}/mcp`.
+1. Spoofed inbound identity headers are stripped before reaching backends.
+1. Browser API routes do not forward inbound `Authorization` headers.
+1. MCP bearer tokens are sent only to agentgateway and are not forwarded to `tasks-api`.
+1. Existing security controls for Keycloak admin exposure, trusted proxies, and private backend ports remain intact.

@@ -1,0 +1,83 @@
+---
+- name: Check stack directory prepared by site.yml
+  ansible.builtin.stat:
+    path: '{{ home_stack_app_dir }}'
+  register: home_stack_app_dir_stat
+- name: Require prepared root-owned stack directory
+  ansible.builtin.assert:
+    that:
+      - home_stack_app_dir_stat.stat.isdir | default(false)
+      - (home_stack_app_dir_stat.stat.pw_name | default('')) == "root"
+    fail_msg: '{{ home_stack_app_dir }} must be prepared by playbooks/site.yml before
+      deploy.yml runs.'
+  when: home_stack_source_mode == "git"
+- name: Require mounted stack directory
+  ansible.builtin.assert:
+    that: [home_stack_app_dir_stat.stat.isdir]
+    fail_msg: '{{ home_stack_app_dir }} must be mounted before deploy.yml runs with
+      home_stack_source_mode=mounted.'
+  when: home_stack_source_mode == "mounted"
+- name: Require supported source mode
+  ansible.builtin.assert:
+    that: ['home_stack_source_mode in ["git", "mounted"]']
+    fail_msg: home_stack_source_mode must be 'git' or 'mounted'.
+- name: Require Git source configuration
+  ansible.builtin.assert:
+    that:
+      - home_stack_git_repo | length > 0
+      - home_stack_git_version | length > 0
+      - >-
+        not (home_stack_env_file == home_stack_app_dir or
+        home_stack_env_file.startswith(home_stack_app_dir ~ '/'))
+    fail_msg: Git deploys require home_stack_git_repo, home_stack_git_version,
+      and an env file outside home_stack_app_dir.
+  when: home_stack_source_mode == "git"
+- name: Ensure release file directory exists
+  ansible.builtin.file:
+    path: '{{ home_stack_release_file | dirname }}'
+    state: directory
+    owner: '{{ home_stack_deploy_user }}'
+    group: '{{ home_stack_deploy_group }}'
+    mode: '0750'
+  when: home_stack_source_mode == "git"
+- name: Render desired Git release marker
+  ansible.builtin.copy:
+    dest: '{{ home_stack_release_file }}'
+    content: "{{ home_stack_git_version }}\n"
+    owner: '{{ home_stack_deploy_user }}'
+    group: '{{ home_stack_deploy_group }}'
+    mode: '0640'
+  when: home_stack_source_mode == "git"
+- name: Ensure environment file directory exists
+  ansible.builtin.file:
+    path: '{{ home_stack_env_file | dirname }}'
+    state: directory
+    owner: '{{ home_stack_deploy_user }}'
+    group: '{{ home_stack_deploy_group }}'
+    mode: '0750'
+- name: Render production environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ home_stack_env_file }}'
+    owner: '{{ home_stack_deploy_user }}'
+    group: '{{ home_stack_deploy_group }}'
+    mode: '0600'
+  no_log: '{{ home_stack_hide_secrets }}'
+- name: Run root-owned deployment wrapper
+  ansible.builtin.command: sudo -n /usr/local/sbin/home-stack-deploy
+  args:
+    chdir: '{{ home_stack_app_dir }}'
+  changed_when: true
+- name: Check public health endpoint
+  ansible.builtin.uri:
+    url: '{{ home_stack_health_check_url }}'
+    method: GET
+    status_code: 200
+    validate_certs: '{{ home_stack_health_check_validate_certs }}'
+  register: home_stack_health_check
+  retries: 12
+  delay: 5
+  until: home_stack_health_check.status == 200
+  when: home_stack_run_health_checks
+  delegate_to: localhost
+  become: false
