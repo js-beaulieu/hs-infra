@@ -6,7 +6,7 @@
 - name: Configure fail2ban sshd jail
   ansible.builtin.template:
     src: jail.local.j2
-    dest: /etc/fail2ban/jail.local
+    dest: /etc/fail2ban/jail.d/sshd.local
     owner: root
     group: root
     mode: '0644'

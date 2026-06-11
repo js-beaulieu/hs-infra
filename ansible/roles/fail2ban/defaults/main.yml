@@ -1,5 +1,5 @@
 ---
 home_stack_admin_cidrs: []
-home_stack_fail2ban_bantime: 1h
-home_stack_fail2ban_findtime: 10m
+home_stack_fail2ban_bantime: 3600
+home_stack_fail2ban_findtime: 600
 home_stack_fail2ban_maxretry: 5

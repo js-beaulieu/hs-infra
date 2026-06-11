@@ -6,6 +6,34 @@ on:
     branches: [main]
 
 jobs:
+  stack-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install project tooling
+        run: uv sync --locked
+
+      - name: Install Playwright browser
+        run: uv run --group dev playwright install --with-deps chromium
+
+      - name: Run formatting checks
+        run: task format
+
+      - name: Run stack config validations
+        run: task lint STACK_ENV_FILE=.env.example
+
+      - name: Run isolated flow tests
+        run: task test
+
   ansible-check:
     runs-on: ubuntu-latest
     steps:

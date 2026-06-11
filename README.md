@@ -5,7 +5,7 @@ Greenfield Docker Compose stack for a homelab auth gateway. Auth stays at the ga
 ## Services
 
 - `caddy`: only public entrypoint, publishes `80` and `443`.
-- `keycloak`: IdP at `https://auth.${DOMAIN}/realms/homelab`.
+- `keycloak`: IdP at `https://auth.${DOMAIN}/realms/home-stack`.
 - `postgres`: shared private database for Keycloak and tasks-api.
 - `oauth2-proxy`: browser SSO/session checks for app hosts and API hosts sharing a parent-domain session cookie.
 - `redis`: private oauth2-proxy session store.
@@ -35,7 +35,17 @@ Generate the cookie secret with:
 openssl rand -base64 32 | tr '+/' '-_'
 ```
 
-Image versions live in `docker/core.yml` for shared platform services and `docker/tasks.yml` for the Tasks app.
+Image versions live in `docker/core.yml` for shared platform services and `docker/tasks.yml` for the Tasks app. The Tasks API intentionally tracks `ghcr.io/js-beaulieu/tasks-api:latest` because this is a single-environment homelab stack and app updates are expected to be automated by Watchtower or an equivalent updater. Do not treat that app image tag as an accidental production-readiness issue for this repo.
+
+## Accepted Production Tradeoffs
+
+This stack is production-oriented for a personal homelab, not a multi-environment commercial platform. These choices are intentional unless explicitly revisited:
+
+- `tasks-api` uses a mutable `latest` tag for the user's own service. Third-party platform services remain pinned to explicit upstream version tags.
+- App APIs own their schema migration process. This repo only provisions the shared Postgres instance, databases, users, and grants.
+- Database/volume backups and restore drills are a later operational work item. Persistent volumes are defined, but this repo does not yet automate backups.
+- The bundled `tasks-web` service is a temporary local/static placeholder. Production frontend hosting may move to a CDN/static origin while keeping the same gateway/API contract.
+- MCP Dynamic Client Registration is deliberately enabled for client onboarding. Scope and trusted-host restrictions are configured here, but further tightening should wait for real Claude/ChatGPT connector validation.
 
 ## Local HTTPS
 
@@ -102,6 +112,8 @@ Cloudflare CIDRs are managed statically in `.env` for now. If automatic updates 
 
 Do not use `/mcp*` or `/api/mcp*`. Use exact and prefix matches only.
 
+`auth.${DOMAIN}` only proxies the intended `home-stack` realm public endpoints. The Keycloak `master` realm and arbitrary additional realms are not public through Caddy.
+
 **Important:** `tasks.${DOMAIN}` is the frontend host (or a local placeholder). In production, the API routes on `tasks.${DOMAIN}` are backwards-compatible; the canonical API host is `api.tasks.${DOMAIN}`.
 
 ## Trusted Headers
@@ -126,7 +138,7 @@ Future external API clients should get explicit bearer-auth routes, separate hos
 
 `keycloak-bootstrap` creates:
 
-- Realm `homelab`.
+- Realm `home-stack`.
 - Groups `/homelab-users`, `/tasks-users`, `/mcp-users`, and `/mcp-writers`.
 - Confidential client `oauth2-proxy-tasks` with redirect URIs `https://api.tasks.${DOMAIN}/oauth2/callback` and temporary compatibility URI `https://tasks.${DOMAIN}/oauth2/callback`.
 - Public client `tasks-mcp` for initial local MCP testing.
@@ -167,7 +179,7 @@ DCR is enabled for MCP onboarding with scopes limited to `openid`, `profile`, `e
 
 ## Internal Issuer Resolution
 
-Keycloak emits the public issuer `https://auth.${DOMAIN}/realms/homelab`, and tokens are validated against that public issuer. Agentgateway fetches JWKS directly from Keycloak at `http://keycloak:8080/realms/homelab/protocol/openid-connect/certs` on the private `auth` network, avoiding `.localhost` DNS special-casing and fixed Docker IPs.
+Keycloak emits the public issuer `https://auth.${DOMAIN}/realms/home-stack`, and tokens are validated against that public issuer. Agentgateway fetches JWKS directly from Keycloak at `http://keycloak:8080/realms/home-stack/protocol/openid-connect/certs` on the private `auth` network, avoiding `.localhost` DNS special-casing and fixed Docker IPs.
 
 ## Add Another App
 

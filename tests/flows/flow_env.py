@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 
 FLOW_DIR = Path(__file__).resolve().parent
-DEFAULT_ENV_FILE = FLOW_DIR / "current.env"
+DEFAULT_ENV_FILE = FLOW_DIR / "testcontainers.env.example"
 GENERATED_USERS_PATH = FLOW_DIR / ".generated-users.json"
 GENERATED_TOKENS_PATH = FLOW_DIR / ".generated-tokens.json"
 

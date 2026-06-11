@@ -1,7 +1,15 @@
+x-security-defaults: &security_defaults
+  security_opt:
+    - no-new-privileges:true
+
 services:
   caddy:
+    <<: *security_defaults
     image: caddy:2-alpine
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
@@ -25,6 +33,7 @@ services:
           - auth.${DOMAIN}
 
   keycloak:
+    <<: *security_defaults
     image: quay.io/keycloak/keycloak:26.1
     restart: unless-stopped
     command: ["start"]
@@ -57,6 +66,7 @@ services:
         condition: service_healthy
 
   keycloak-bootstrap:
+    <<: *security_defaults
     image: quay.io/keycloak/keycloak:26.1
     restart: "no"
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
@@ -81,6 +91,7 @@ services:
         condition: service_healthy
 
   postgres:
+    <<: *security_defaults
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -101,6 +112,7 @@ services:
       retries: 10
 
   redis:
+    <<: *security_defaults
     image: redis:8-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -110,8 +122,14 @@ services:
       auth-session:
 
   oauth2-proxy:
+    <<: *security_defaults
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.1
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     command: ["--config", "/etc/oauth2-proxy/oauth2-proxy.cfg"]
     environment:
       OAUTH2_PROXY_CLIENT_ID: oauth2-proxy-tasks
@@ -119,7 +137,7 @@ services:
       OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET}
       OAUTH2_PROXY_COOKIE_DOMAINS: .${DOMAIN}
       OAUTH2_PROXY_REDIRECT_URL: ${PUBLIC_API_ORIGIN:-https://api.tasks.${DOMAIN}}/oauth2/callback
-      OAUTH2_PROXY_OIDC_ISSUER_URL: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/homelab
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/home-stack
       OAUTH2_PROXY_PROVIDER_CA_FILES: ${OAUTH2_PROXY_PROVIDER_CA_FILES:-}
       OAUTH2_PROXY_WHITELIST_DOMAINS: ${OAUTH2_PROXY_WHITELIST_DOMAINS:-.${DOMAIN}}
     extra_hosts:
@@ -137,8 +155,14 @@ services:
         condition: service_completed_successfully
 
   agentgateway:
+    <<: *security_defaults
     image: cr.agentgateway.dev/agentgateway:v1.2.1
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     command: ["-f", "/etc/agentgateway/config.yaml"]
     environment:
       SSL_CERT_FILE: ${AGENTGATEWAY_SSL_CERT_FILE:-}
@@ -156,12 +180,18 @@ services:
         condition: service_completed_successfully
 
   agentgateway-bootstrap:
+    <<: *security_defaults
     image: alpine:3.20
     restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
     environment:
-      AGENTGATEWAY_ISSUER: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/homelab
-      AGENTGATEWAY_JWKS_URL: http://keycloak:8080/realms/homelab/protocol/openid-connect/certs
+      AGENTGATEWAY_ISSUER: ${PUBLIC_AUTH_ORIGIN:-https://auth.${DOMAIN}}/realms/home-stack
+      AGENTGATEWAY_JWKS_URL: http://keycloak:8080/realms/home-stack/protocol/openid-connect/certs
       MCP_RESOURCE_URI: ${MCP_RESOURCE_URI:-https://api.tasks.${DOMAIN}/mcp}
       AGENTGATEWAY_CONFIG_TMPL: /etc/agentgateway/config.yaml.tmpl
       AGENTGATEWAY_CONFIG_OUT: /etc/agentgateway/config.yaml

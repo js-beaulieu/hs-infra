@@ -31,9 +31,14 @@
     append: false
     create_home: true
     state: present
+- name: Require at least one deploy authorized key
+  ansible.builtin.assert:
+    that: [home_stack_deploy_authorized_keys | length > 0]
+    fail_msg: home_stack_deploy_authorized_keys must include at least one public
+      key.
 - name: Install deploy SSH authorized keys
   ansible.posix.authorized_key:
     user: '{{ home_stack_deploy_user }}'
-    key: '{{ item }}'
+    key: "{{ home_stack_deploy_authorized_keys | join('\n') }}"
+    exclusive: true
     state: present
-  loop: '{{ home_stack_deploy_authorized_keys }}'

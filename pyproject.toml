@@ -31,3 +31,4 @@ timeout_func_only = true
 
 [tool.yamlfix]
 exclude = [".ansible-lint"]
+preserve_quotes = true

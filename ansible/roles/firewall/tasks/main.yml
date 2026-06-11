@@ -5,9 +5,9 @@
     state: present
 - name: Require at least one SSH admin CIDR before enabling UFW
   ansible.builtin.assert:
-    that:
-      - home_stack_admin_cidrs | length > 0
-    fail_msg: home_stack_admin_cidrs must include at least one CIDR before UFW can be enabled.
+    that: [home_stack_admin_cidrs | length > 0]
+    fail_msg: home_stack_admin_cidrs must include at least one CIDR before UFW can
+      be enabled.
 - name: Reset UFW defaults to deny incoming
   community.general.ufw:
     direction: incoming

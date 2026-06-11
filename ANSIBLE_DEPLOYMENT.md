@@ -95,8 +95,10 @@ uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/play
 If you are testing against a fresh local VM that still permits root SSH, override the user explicitly:
 
 ```sh
-uv run ansible-playbook -i ansible/inventories/local-vm/hosts.yml ansible/playbooks/bootstrap.yml -u root
+uv run ansible-playbook -i ansible/inventories/local-vm/hosts.yml ansible/playbooks/bootstrap.yml -u root --private-key "$HOME_STACK_LOCAL_VM_SSH_KEY_FILE"
 ```
+
+For local VM runs, do not hardcode a developer-machine private-key path in inventory. Use normal Ansible/OpenSSH credential handling: an existing `ssh-agent`, `~/.ssh/config`, `--private-key`, or `ANSIBLE_PRIVATE_KEY_FILE`.
 
 Run host convergence as the debian user:
 
@@ -127,8 +129,12 @@ PROD_GIT_REPO
 PROD_DOMAIN
 PROD_ACME_EMAIL
 PROD_ADMIN_CIDRS
+PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES
+PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES
 PROD_WEB_EXPOSURE
 ```
+
+`PROD_ADMIN_CIDRS` is used by provisioning for SSH/firewall admin access and is also the default Keycloak admin client-IP allowlist during deploy. Set `PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES` only when Keycloak admin access should use a different client CIDR list. Set `PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES` to trusted edge proxy CIDRs, such as Cloudflare, when the origin is proxied.
 
 Required GitHub Environment secrets include:
 
@@ -148,7 +154,7 @@ Ansible Vault can replace the GitHub-secret rendered app vars later. The roles a
 
 A disposable local VM can be tested with ignored inventory under `ansible/inventories/local-vm/`.
 
-The current test VM uses QEMU user networking with SSH forwarded to `127.0.0.1:2222`. It uses fake test-only credentials and a temporary SSH key under `/tmp/opencode/home-stack-debian13-vm`.
+The current test VM uses QEMU user networking with SSH forwarded to `127.0.0.1:2222`. It uses fake test-only credentials and standard Ansible/OpenSSH SSH key handling.
 
 For reachable local testing, start the VM with host forwards:
 
@@ -170,8 +176,8 @@ Run the same flow against the VM:
 
 ```sh
 uv run ansible-galaxy collection install -r ansible/requirements.yml
-uv run ansible-playbook -i ansible/inventories/local-vm/hosts.yml ansible/playbooks/site.yml
-uv run ansible-playbook -i ansible/inventories/local-vm/hosts.yml ansible/playbooks/deploy.yml
+uv run ansible-playbook -i ansible/inventories/local-vm/hosts.yml ansible/playbooks/site.yml --private-key "$HOME_STACK_LOCAL_VM_SSH_KEY_FILE"
+uv run ansible-playbook -i ansible/inventories/local-vm/hosts.yml ansible/playbooks/deploy.yml --private-key "$HOME_STACK_LOCAL_VM_SSH_KEY_FILE"
 ```
 
 ## Firewall Modes

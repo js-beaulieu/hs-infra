@@ -16,7 +16,7 @@ from tests.flows.flow_env import (
 from tests.flows.testcontainers_stack import stop_testcontainers_stack
 
 
-REALM = "homelab"
+REALM = "home-stack"
 KC = "/opt/keycloak/bin/kcadm.sh"
 SERVER = "http://keycloak:8080"
 

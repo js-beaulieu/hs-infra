@@ -13,22 +13,22 @@
 ```
 task start          # docker compose up -d --build
 task stop           # docker compose down
-task test           # run Python Playwright/httpx flow tests (current URL shape)
+task test           # run Python Playwright/httpx flow tests in Testcontainers
 task lint           # validate compose, caddy, oauth2-proxy, agentgateway, shellcheck
 task format         # npx prettier --check .
 task format:write   # npx prettier --write .
 task ci             # run test, lint, format in parallel
 ```
 
-- `task test` passes args through, so `task test -- tests/flows/migrated.env` works.
+- `task test` always starts an isolated Testcontainers Compose project; no pre-existing local stack is used.
 - Flow tests use `scripts/run-flow-tests.sh` and require `FLOW_TEST_ENV_FILE` or a `.env` file passed in.
 
 ## Testing
 
 - All tests live in `tests/flows/` and use pytest with Playwright for browser checks and httpx for HTTP checks.
-- `tests/flows/testcontainers_stack.py` manages an isolated Docker Compose project through testcontainers with randomized ports and project name. Use `FLOW_TEST_USE_TESTCONTAINERS=1` to enable it.
+- `tests/flows/testcontainers_stack.py` manages an isolated Docker Compose project through testcontainers with randomized ports and project name. This is the only supported Python flow-test mode.
 - `tests/flows/keycloak_setup.py` creates Keycloak test users, groups, and MCP tokens via `docker exec` into the Keycloak container.
-- Flow tests have two URL shapes: current (`current.env`) and migrated (`migrated.env`). Tests are the same; only URL variables differ.
+- Flow tests generate their URL shape from the disposable Testcontainers stack at runtime. Do not add local-stack conditionals to `tests/flows/conftest.py`.
 - Never change non-URL test logic after baseline is green without asking.
 
 ## Gotchas
@@ -40,6 +40,11 @@ task ci             # run test, lint, format in parallel
 - Agentgateway config is rendered from `docker/agentgateway/config.yaml.tmpl` by `agentgateway-bootstrap` at startup; `docker/agentgateway/config.yaml` is gitignored.
 - oauth2-proxy must NOT set `user_id_claim` — an oauth2-proxy bug causes email claim corruption when it's set explicitly.
 - MCP access tokens intentionally default to 1-year lifespan (`MCP_ACCESS_TOKEN_LIFESPAN_SECONDS`) to work around long-standing MCP client refresh/re-auth bugs; oauth2-proxy tokens stay at 5 minutes. Do not flag this as an accidental production-readiness issue unless the user asks to revisit the MCP compatibility tradeoff. Context: https://github.com/anthropics/claude-code/issues/26281, https://github.com/axiomhq/mcp/pull/63, https://github.com/Doist/todoist-mcp/issues/400#issuecomment-4096763597.
+- `ghcr.io/js-beaulieu/tasks-api:latest` is intentional for this single-environment homelab stack and planned Watchtower-style updates. Do not flag the user's own mutable app image tag as a production-readiness issue; third-party service tags should still stay explicit.
+- App APIs own their own database migrations. This repo provisions Postgres databases/users/grants only; do not flag missing app migration orchestration here unless the user asks to revisit that boundary.
+- Backups/restore automation is intentionally deferred. You may mention it only when the user asks for backup/DR work, not as a repeated production-readiness finding.
+- `tasks-web` is a temporary placeholder/local static frontend. Do not treat the placeholder as a blocker unless the task is specifically about frontend production rollout.
+- MCP Dynamic Client Registration is intentionally enabled for connector onboarding. Do not tighten or remove DCR without explicit user direction; document and test the current allowlist behavior instead.
 
 ## Style
 

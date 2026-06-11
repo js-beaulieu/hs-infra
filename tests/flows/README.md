@@ -1,12 +1,12 @@
 # Flow Tests
 
-These Python pytest tests use Playwright and httpx to validate the current (pre-migration) and migrated (post-migration) URL shapes for the home-stack auth gateway.
+These Python pytest tests use Playwright and httpx to validate the home-stack auth gateway against a disposable Testcontainers-backed Docker Compose stack.
 
 ## Prerequisites
 
-1. The Docker Compose stack must be running and healthy.
-2. Keycloak must be bootstrapped with the realm, groups, and clients.
-3. The flow env file must include Keycloak admin credentials so setup can create and verify temporary test users.
+1. Docker must be available.
+2. Python tooling must be installed through `uv sync --locked`.
+3. Playwright Chromium must be installed with `uv run --group dev playwright install chromium`.
 
 ## Test Users
 
@@ -32,28 +32,25 @@ Tokens are written to `tests/flows/.generated-tokens.json` and cleaned up by tea
 
 ## Running Tests
 
-### Isolated Testcontainers Stack
-
 This mode starts a disposable Docker Compose project with random host ports and test-scoped volumes, so it does not publish `80`/`443` or reuse the real `home-stack` project resources.
 
 ```sh
 scripts/run-flow-tests.sh tests/flows/testcontainers.env.example
 ```
 
-The setup generates the flow URL env file after the random HTTPS port is known, creates temporary Keycloak users, and tears the Compose project down at the end.
-
-### Baseline (local stack)
+or through the Taskfile:
 
 ```sh
-# Edit tests/flows/local.env with Keycloak admin credentials and optional tokens
-scripts/run-flow-tests.sh tests/flows/local.env
+task test
 ```
+
+The setup always starts a disposable Compose project with random host ports, generates the runtime flow URL env file after the random HTTPS port is known, creates temporary Keycloak users, and tears the Compose project down at the end. Override files such as `tests/flows/testcontainers.env.example` may set test-only values like `FLOW_TEST_DOMAIN`, `TEST_USER_PREFIX`, and `FLOW_TEST_KEEP_TESTCONTAINERS`; they do not point tests at a pre-existing local stack.
 
 ## Rules
 
-1. After the baseline is green, test logic, assertions, status expectations, auth expectations, spoofing checks, and security expectations must stay frozen.
-2. The only changes allowed between the `current.env` and `migrated.env` runs are the URL variables (`WEB_ORIGIN`, `API_BASE`, `MCP_RESOURCE`, `MCP_METADATA`, `OAUTH2_BASE`).
-3. If a non-URL test change appears necessary, stop and ask first.
+1. Flow tests must always use the Testcontainers stack from `tests/flows/testcontainers_stack.py`.
+2. Do not add local-stack conditionals or `FLOW_TEST_USE_TESTCONTAINERS`-style switches to `conftest.py`.
+3. If a test contract change appears necessary, stop and ask first.
 
 ## Coverage
 

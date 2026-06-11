@@ -13,44 +13,23 @@ This lets DNS point the frontend host at a CDN while the API host still points a
 
 ## Non-Negotiable Test Discipline
 
-Before changing gateway/auth behavior, add flow tests that lock in the current working behavior and get them green against the current URL shape.
+Flow tests always run against the disposable Testcontainers stack managed by `tests/flows/testcontainers_stack.py`. Do not add local-stack test modes, env-var switches, or URL-shape conditionals to `tests/flows/conftest.py`.
 
-Current URL variables:
-
-```txt
-WEB_ORIGIN=https://tasks.${DOMAIN}
-API_BASE=https://tasks.${DOMAIN}/api
-MCP_RESOURCE=https://tasks.${DOMAIN}/api/mcp
-MCP_METADATA=https://tasks.${DOMAIN}/.well-known/oauth-protected-resource/api/mcp
-OAUTH2_BASE=https://tasks.${DOMAIN}/oauth2
-```
-
-After the baseline is green, change only the URL variables to the new shape:
-
-```txt
-WEB_ORIGIN=https://tasks.${DOMAIN}
-API_BASE=https://api.tasks.${DOMAIN}
-MCP_RESOURCE=https://api.tasks.${DOMAIN}/mcp
-MCP_METADATA=https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
-OAUTH2_BASE=https://api.tasks.${DOMAIN}/oauth2
-```
-
-Do not change assertions, status expectations, auth expectations, spoofing checks, or test logic after the baseline is green. If a non-URL test change appears necessary, stop and ask first.
+Do not change assertions, status expectations, auth expectations, spoofing checks, or test logic to make an implementation change pass. If a test contract change appears necessary, stop and ask first.
 
 ## Test Files To Add First
 
 Add an executable Python pytest harness before changing the stack behavior.
 
 - `pyproject.toml`: pytest, Playwright, httpx, and testcontainers runner/dependency config.
-- `tests/flows/README.md`: explains prerequisites, required test users/tokens, how to run current and migrated suites, and the rule that post-baseline test edits are URL-only.
-- `tests/flows/current.env.example`: current URL variables and placeholder credentials/token variables.
-- `tests/flows/migrated.env.example`: new URL variables only; same test expectations.
+- `tests/flows/README.md`: explains prerequisites, generated test users/tokens, and the Testcontainers-only flow-test contract.
+- `tests/flows/testcontainers.env.example`: optional test-only overrides for the generated disposable stack.
 - `tests/flows/flow_env.py`: reads and validates required environment variables for all tests.
 - `tests/flows/test_app_login_flow.py`: real browser app login, oauth2-proxy, Keycloak redirect/form, cookie, successful user, denied user, and expired/invalid session checks.
 - `tests/flows/test_api_flow.py`: httpx and Playwright request tests for health, unauthenticated protected API, spoofed identity headers, stripped authorization headers, CORS preflight, and CSRF/origin behavior.
 - `tests/flows/test_mcp_flow.py`: httpx and Playwright request tests for MCP metadata, unauthenticated challenge, invalid/tampered token, wrong audience or expired token, missing group, valid token, and route boundary checks.
 - `tests/flows/flow_helpers.py`: shared login, cookie/session, token, and assertion helpers used by the tests.
-- `scripts/run-flow-tests.sh`: validates required tools/env, loads one env file, and runs `uv run pytest` against the same test files for current and migrated URL shapes.
+- `scripts/run-flow-tests.sh`: validates required tooling, loads optional Testcontainers overrides, and runs `uv run pytest`.
 
 Use pytest for all validation tests. Browser flows use Playwright pages/contexts; API, gateway, and MCP checks use httpx unless Playwright browser context behavior is under test.
 
@@ -90,21 +69,19 @@ MCP flow:
 
 ## Implementation Phases
 
-### Phase 1: Baseline Current Behavior
+### Phase 1: Baseline Behavior
 
 1. Add the flow test files and script listed above.
-1. Configure `tests/flows/current.env` locally from `current.env.example`.
-1. Run `scripts/run-flow-tests.sh tests/flows/current.env`.
-1. Fix current stack behavior only if tests reveal a real current bug.
-1. Repeat until the current URL shape is green.
-1. Freeze test logic after green; only URL variables may change for the migration.
+1. Run `scripts/run-flow-tests.sh`.
+1. Fix stack behavior only if tests reveal a real bug.
+1. Repeat until the Testcontainers flow suite is green.
+1. Freeze test logic after green; implementation changes should not weaken the test contract.
 
-### Phase 2: Change Tests To New URLs Only
+### Phase 2: Change Gateway URL Shape
 
-1. Create `tests/flows/migrated.env` from `migrated.env.example`.
-1. Point `API_BASE`, `MCP_RESOURCE`, `MCP_METADATA`, and `OAUTH2_BASE` at `api.tasks.${DOMAIN}`.
-1. Do not change non-URL expectations.
-1. Run `scripts/run-flow-tests.sh tests/flows/migrated.env` and confirm failures are expected migration failures.
+1. Change the stack implementation to generate the intended API/MCP URL shape in the disposable Testcontainers environment.
+1. Do not change test expectations unless the API contract itself is deliberately changing.
+1. Run `scripts/run-flow-tests.sh` and confirm failures are implementation failures.
 
 ### Phase 3: Caddy Routing
 
@@ -210,19 +187,19 @@ Run this loop after Phase 2.
 1. Run `docker compose --env-file .env -f docker/compose.yml config`.
 1. Run Caddy validation if the container/tooling is available.
 1. Start or restart the stack.
-1. Run `scripts/run-flow-tests.sh tests/flows/migrated.env`.
+1. Run `scripts/run-flow-tests.sh`.
 1. Fix implementation files only.
-1. Do not modify tests except URL variables.
-1. If a non-URL test change appears necessary, stop and ask.
+1. Do not modify tests to weaken the contract.
+1. If a test contract change appears necessary, stop and ask.
 1. Repeat until all flow tests pass.
 
 ## Acceptance Criteria
 
 1. The repo contains executable Playwright flow tests and a script that runs them.
-1. The tests first validate and lock in the current green flows for app login, API, and MCP using the current URL shape.
+1. The tests validate and lock in green flows for app login, API, and MCP using an isolated Testcontainers stack.
 1. The tests cover authenticated, unauthenticated, spoofed-header, invalid or expired credential, app login, normal API, and MCP flows.
-1. After the baseline is green, the only test changes for the migration are URL variables pointing to `api.tasks.${DOMAIN}` and `/mcp`.
-1. The implementation loop runs the migrated tests repeatedly until they pass.
+1. After the baseline is green, implementation changes must preserve the same test contract unless a contract change is explicitly approved.
+1. The implementation loop runs the Testcontainers flow tests repeatedly until they pass.
 1. No test logic, assertions, status expectations, auth expectations, spoofing expectations, or security expectations are changed after the baseline is green without asking first.
 1. `tasks.${DOMAIN}` can be hosted by a CDN/static provider without proxying through the VPS for `/api` path routing.
 1. `api.tasks.${DOMAIN}` serves `/health`, normal API routes, `/mcp`, and MCP metadata through Caddy on the VPS.

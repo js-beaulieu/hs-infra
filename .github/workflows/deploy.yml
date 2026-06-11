@@ -53,6 +53,7 @@ jobs:
           PROD_MCP_RESOURCE_URI: ${{ vars.PROD_MCP_RESOURCE_URI }}
           PROD_CADDY_TLS_DIRECTIVE: ${{ vars.PROD_CADDY_TLS_DIRECTIVE }}
           PROD_CADDY_TRUSTED_PROXIES: ${{ vars.PROD_CADDY_TRUSTED_PROXIES }}
+          PROD_ADMIN_CIDRS: ${{ vars.PROD_ADMIN_CIDRS }}
           PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES: ${{ vars.PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES }}
           PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES: ${{ vars.PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES }}
           PROD_OAUTH2_PROXY_WHITELIST_DOMAINS: ${{ vars.PROD_OAUTH2_PROXY_WHITELIST_DOMAINS }}
@@ -113,7 +114,7 @@ jobs:
               "home_stack_caddy_https_port": 443,
               "home_stack_caddy_trusted_proxies": list_env("PROD_CADDY_TRUSTED_PROXIES", "127.0.0.1/32,::1/128"),
               "home_stack_keycloak_admin_remote_ip_ranges": list_env("PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES", "private_ranges"),
-              "home_stack_keycloak_admin_client_ip_ranges": list_env("PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES"),
+              "home_stack_keycloak_admin_client_ip_ranges": list_env("PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES", env("PROD_ADMIN_CIDRS")),
               "home_stack_keycloak_admin_username": "admin",
               "home_stack_keycloak_admin_password": env("PROD_KEYCLOAK_ADMIN_PASSWORD"),
               "home_stack_keycloak_db_name": "keycloak",

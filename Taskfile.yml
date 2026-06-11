@@ -4,7 +4,7 @@ tasks:
   start:
     desc: Start the stack
     cmds:
-      - docker compose --env-file .env -f docker/compose.yml up -d --build
+      - docker compose --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml up -d --build
 
   stop:
     desc: Stop the stack
@@ -12,9 +12,9 @@ tasks:
       - docker compose -f docker/compose.yml down
 
   test:
-    desc: Run flow tests against current URL shape
+    desc: Run isolated Testcontainers flow tests
     cmds:
-      - bash scripts/run-flow-tests.sh {{.CLI_ARGS | default "tests/flows/current.env"}}
+      - bash scripts/run-flow-tests.sh {{.CLI_ARGS | default "tests/flows/testcontainers.env.example"}}
 
   lint:
     desc: Run all config validations
@@ -23,7 +23,7 @@ tasks:
   lint:compose:
     desc: Validate Docker Compose config
     cmds:
-      - docker compose --env-file .env -f docker/compose.yml config --quiet
+      - docker compose --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml config --quiet
 
   lint:caddy:
     desc: Validate Caddy config
@@ -62,10 +62,10 @@ tasks:
         mkdir -p /tmp/agentgateway-lint
         echo '{"keys":[]}' > /tmp/agentgateway-lint/jwks.json
         sed \
-          -e 's|\${AGENTGATEWAY_ISSUER}|https://auth.test.local/realms/homelab|g' \
-          -e 's|\${AGENTGATEWAY_JWKS_URL}|https://auth.test.local/realms/homelab/protocol/openid-connect/certs|g' \
+          -e 's|\${AGENTGATEWAY_ISSUER}|https://auth.test.local/realms/home-stack|g' \
+          -e 's|\${AGENTGATEWAY_JWKS_URL}|https://auth.test.local/realms/home-stack/protocol/openid-connect/certs|g' \
           -e 's|\${MCP_RESOURCE_URI}|https://api.tasks.test.local/mcp|g' \
-          -e 's|url: "https://auth.test.local/realms/homelab/protocol/openid-connect/certs"|file: "/etc/agentgateway/jwks.json"|g' \
+          -e 's|url: "https://auth.test.local/realms/home-stack/protocol/openid-connect/certs"|file: "/etc/agentgateway/jwks.json"|g' \
           agentgateway/config.yaml.tmpl > /tmp/agentgateway-lint/config.yaml
         docker run --rm \
           -v /tmp/agentgateway-lint:/etc/agentgateway:ro \

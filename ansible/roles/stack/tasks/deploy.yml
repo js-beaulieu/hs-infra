@@ -13,7 +13,7 @@
   when: home_stack_source_mode == "git"
 - name: Require mounted stack directory
   ansible.builtin.assert:
-    that: [home_stack_app_dir_stat.stat.isdir]
+    that: [home_stack_app_dir_stat.stat.isdir | default(false)]
     fail_msg: '{{ home_stack_app_dir }} must be mounted before deploy.yml runs with
       home_stack_source_mode=mounted.'
   when: home_stack_source_mode == "mounted"
@@ -29,38 +29,44 @@
       - >-
         not (home_stack_env_file == home_stack_app_dir or
         home_stack_env_file.startswith(home_stack_app_dir ~ '/'))
-    fail_msg: Git deploys require home_stack_git_repo, home_stack_git_version,
-      and an env file outside home_stack_app_dir.
+    fail_msg: Git deploys require home_stack_git_repo, home_stack_git_version, and
+      an env file outside home_stack_app_dir.
   when: home_stack_source_mode == "git"
 - name: Ensure release file directory exists
   ansible.builtin.file:
     path: '{{ home_stack_release_file | dirname }}'
     state: directory
-    owner: '{{ home_stack_deploy_user }}'
-    group: '{{ home_stack_deploy_group }}'
     mode: '0750'
   when: home_stack_source_mode == "git"
 - name: Render desired Git release marker
   ansible.builtin.copy:
     dest: '{{ home_stack_release_file }}'
     content: "{{ home_stack_git_version }}\n"
-    owner: '{{ home_stack_deploy_user }}'
-    group: '{{ home_stack_deploy_group }}'
     mode: '0640'
   when: home_stack_source_mode == "git"
-- name: Ensure environment file directory exists
+- name: Check environment file directory
+  ansible.builtin.stat:
+    path: '{{ home_stack_env_file | dirname }}'
+  register: home_stack_env_dir_stat
+- name: Create environment file directory when missing
   ansible.builtin.file:
     path: '{{ home_stack_env_file | dirname }}'
     state: directory
-    owner: '{{ home_stack_deploy_user }}'
-    group: '{{ home_stack_deploy_group }}'
     mode: '0750'
+  when: not (home_stack_env_dir_stat.stat.exists | default(false))
+- name: Recheck environment file directory
+  ansible.builtin.stat:
+    path: '{{ home_stack_env_file | dirname }}'
+  register: home_stack_env_dir_stat
+- name: Require environment file directory
+  ansible.builtin.assert:
+    that: [home_stack_env_dir_stat.stat.isdir | default(false)]
+    fail_msg: '{{ home_stack_env_file | dirname }} must be an existing directory
+      writable by {{ home_stack_deploy_user }}.'
 - name: Render production environment file
   ansible.builtin.template:
     src: env.j2
     dest: '{{ home_stack_env_file }}'
-    owner: '{{ home_stack_deploy_user }}'
-    group: '{{ home_stack_deploy_group }}'
     mode: '0600'
   no_log: '{{ home_stack_hide_secrets }}'
 - name: Run root-owned deployment wrapper

@@ -29,7 +29,7 @@ home_stack_caddy_http_port: 80
 home_stack_caddy_https_port: 443
 home_stack_caddy_trusted_proxies:
   - 127.0.0.1/32
-  - ::1/128
+  - "::1/128"
 home_stack_keycloak_admin_remote_ip_ranges:
   - private_ranges
 home_stack_keycloak_admin_client_ip_ranges: "{{ home_stack_admin_cidrs }}"
@@ -40,7 +40,7 @@ home_stack_keycloak_db_name: keycloak
 home_stack_keycloak_db_user: keycloak
 home_stack_keycloak_db_password: vm-only-keycloak-db-password
 home_stack_oauth2_proxy_client_secret: vm-only-oauth-client-secret
-home_stack_oauth2_proxy_cookie_secret: vm-only-cookie-secret-vm-only-cookie-secret-12345678
+home_stack_oauth2_proxy_cookie_secret: vm-only-cookie-secret-1234567890
 home_stack_tasks_db_name: tasks
 home_stack_tasks_db_user: tasks
 home_stack_tasks_db_password: vm-only-tasks-db-password

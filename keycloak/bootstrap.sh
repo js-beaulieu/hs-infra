@@ -3,7 +3,7 @@ set -eu
 
 KC=/opt/keycloak/bin/kcadm.sh
 SERVER=http://keycloak:8080
-REALM=homelab
+REALM=home-stack
 
 require_json_string_safe() {
   name=$1

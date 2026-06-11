@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_FILE="$1"
-if [[ -z "${ENV_FILE}" ]]; then
-  echo "Usage: $0 <path-to-env-file>"
-  exit 1
+ENV_FILE="${1:-tests/flows/testcontainers.env.example}"
+if [[ $# -gt 0 ]]; then
+  shift
 fi
-shift
 
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Env file not found: ${ENV_FILE}"
@@ -34,6 +32,6 @@ PYTEST_ARGS=(--group dev pytest)
 if [[ -n "${CI:-}" ]]; then
   PYTEST_ARGS+=(--reruns 2)
 fi
-PYTEST_ARGS+=(tests/flows "$@")
+PYTEST_ARGS+=(--flow-env "${ENV_FILE_ABS}" tests/flows "$@")
 
 "${UV_BIN}" run "${PYTEST_ARGS[@]}"

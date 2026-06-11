@@ -112,13 +112,8 @@ auth.{$DOMAIN} {
 		respond 403
 	}
 
-	handle /.well-known/* {
-		reverse_proxy keycloak:8080 {
-			import proxy_headers
-		}
-	}
-
-	handle /realms/* {
+	@home_stack_realm path /realms/home-stack /realms/home-stack/*
+	handle @home_stack_realm {
 		reverse_proxy keycloak:8080 {
 			import proxy_headers
 		}

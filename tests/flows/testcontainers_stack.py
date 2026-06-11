@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import socket
+import subprocess
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -68,6 +69,34 @@ def docker_compose(env_file: Path) -> DockerCompose:
         wait=True,
         env_file=str(env_file),
     )
+
+
+def print_compose_diagnostics(project_name: str, env_file: Path) -> None:
+    env = {**os.environ, "COMPOSE_PROJECT_NAME": project_name}
+    base_cmd = [
+        "docker",
+        "compose",
+        "--env-file",
+        str(env_file),
+        "-f",
+        str(REPO_ROOT / "docker/compose.yml"),
+        "-f",
+        str(REPO_ROOT / "docker/test.yml"),
+    ]
+    for args in (["ps"], ["logs", "--no-color", "--tail", "200"]):
+        result = subprocess.run(
+            [*base_cmd, *args],
+            check=False,
+            cwd=REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+        print(f"--- docker compose {' '.join(args)} ---")
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
 
 
 def compose_down(project_name: str, env_file: Path) -> None:
@@ -157,6 +186,7 @@ def start_testcontainers_stack() -> None:
         wait_for_url(f"{api_origin}/users/me")
         wait_for_url(f"{web_origin}/")
     except Exception:
+        print_compose_diagnostics(project_name, compose_env_file)
         try:
             compose_down(project_name, compose_env_file)
         except Exception:

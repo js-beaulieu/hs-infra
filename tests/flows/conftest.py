@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import httpx
@@ -11,29 +10,29 @@ from tests.flows.keycloak_setup import (
     setup_keycloak_flow_state,
     teardown_keycloak_flow_state,
 )
-from tests.flows.testcontainers_stack import start_testcontainers_stack
+from tests.flows.testcontainers_stack import (
+    start_testcontainers_stack,
+    stop_testcontainers_stack,
+)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--flow-env",
         action="store",
-        default=os.environ.get("FLOW_TEST_ENV_FILE", str(DEFAULT_ENV_FILE)),
-        help="Flow test env file to load before setup",
+        default=str(DEFAULT_ENV_FILE),
+        help="Testcontainers override env file to load before setup",
     )
 
 
 @pytest.fixture(scope="session", autouse=True)
 def flow_global_setup(pytestconfig: pytest.Config):
     env_file = Path(pytestconfig.getoption("--flow-env")).resolve()
-    os.environ["FLOW_TEST_ENV_FILE"] = str(env_file)
     load_env_file(env_file, override=True)
 
     try:
-        if os.environ.get("FLOW_TEST_USE_TESTCONTAINERS") == "1":
-            start_testcontainers_stack()
-            load_env_file(flow_env_file(), override=True)
-
+        start_testcontainers_stack()
+        load_env_file(flow_env_file(), override=True)
         setup_keycloak_flow_state()
     except Exception:
         teardown_keycloak_flow_state()
@@ -43,6 +42,7 @@ def flow_global_setup(pytestconfig: pytest.Config):
         yield
     finally:
         teardown_keycloak_flow_state()
+        stop_testcontainers_stack()
 
 
 @pytest.fixture(scope="session")

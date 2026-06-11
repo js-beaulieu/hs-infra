@@ -17,8 +17,7 @@
   when: home_stack_source_mode == "git"
 - name: Require Git source configuration for wrapper
   ansible.builtin.assert:
-    that:
-      - home_stack_git_repo | length > 0
+    that: [home_stack_git_repo | length > 0]
     fail_msg: home_stack_git_repo is required when home_stack_source_mode=git.
   when: home_stack_source_mode == "git"
 - name: Install root-owned stack deployment wrapper

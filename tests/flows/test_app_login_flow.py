@@ -13,7 +13,7 @@ def test_unauthenticated_browser_navigation_reaches_the_login_start_flow_not_tas
     response = page.goto(flow_env.web_origin)
     assert response is not None
     assert response.status == 200
-    assert "/realms/homelab/protocol/openid-connect/auth" in page.url
+    assert "/realms/home-stack/protocol/openid-connect/auth" in page.url
 
 
 def test_valid_keycloak_user_in_homelab_users_and_tasks_users_can_authenticate(
@@ -141,7 +141,7 @@ def test_expired_or_invalid_session_cookie_is_rejected(browser, flow_env):
         url = bad_page.url
         assert (
             "/oauth2/start" in url
-            or "/realms/homelab/protocol/openid-connect/auth" in url
+            or "/realms/home-stack/protocol/openid-connect/auth" in url
         ), "Invalid session should be rejected and redirected to login"
     finally:
         login_context.close()

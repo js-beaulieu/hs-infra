@@ -26,7 +26,7 @@ home_stack_mcp_resource_uri: '{{ home_stack_public_api_origin }}/mcp'
 home_stack_caddy_tls_directive: ''
 home_stack_caddy_http_port: 80
 home_stack_caddy_https_port: 443
-home_stack_caddy_trusted_proxies: [127.0.0.1/32, '::1/128']
+home_stack_caddy_trusted_proxies: [127.0.0.1/32, "::1/128"]
 home_stack_keycloak_admin_remote_ip_ranges: [private_ranges]
 home_stack_keycloak_admin_client_ip_ranges: '{{ home_stack_admin_cidrs }}'
 home_stack_keycloak_admin_username: admin
@@ -35,7 +35,7 @@ home_stack_keycloak_db_name: keycloak
 home_stack_keycloak_db_user: keycloak
 home_stack_keycloak_db_password: ci-only-keycloak-db-password
 home_stack_oauth2_proxy_client_secret: ci-only-oauth-client-secret
-home_stack_oauth2_proxy_cookie_secret: ci-only-cookie-secret-ci-only-cookie-secret-12345678
+home_stack_oauth2_proxy_cookie_secret: ci-only-cookie-secret-1234567890
 home_stack_tasks_db_name: tasks
 home_stack_tasks_db_user: tasks
 home_stack_tasks_db_password: ci-only-tasks-db-password

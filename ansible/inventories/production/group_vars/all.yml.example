@@ -31,7 +31,7 @@ home_stack_caddy_http_port: 80
 home_stack_caddy_https_port: 443
 home_stack_caddy_trusted_proxies:
   - 127.0.0.1/32
-  - ::1/128
+  - "::1/128"
 home_stack_keycloak_admin_remote_ip_ranges:
   - private_ranges
 home_stack_keycloak_admin_client_ip_ranges: "{{ home_stack_admin_cidrs }}"
