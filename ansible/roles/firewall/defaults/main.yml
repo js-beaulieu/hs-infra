@@ -5,3 +5,5 @@ home_stack_firewall_web_exposure: direct
 home_stack_cloudflare_cidrs: []
 home_stack_firewall_extra_web_cidrs: []
 home_stack_firewall_manage_docker_user_chain: true
+home_stack_caddy_http_port: 80
+home_stack_caddy_https_port: 443

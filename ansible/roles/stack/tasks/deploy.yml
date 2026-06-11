@@ -15,12 +15,12 @@
   ansible.builtin.assert:
     that: [home_stack_app_dir_stat.stat.isdir | default(false)]
     fail_msg: '{{ home_stack_app_dir }} must be mounted before deploy.yml runs with
-      home_stack_source_mode=mounted.'
-  when: home_stack_source_mode == "mounted"
+      home_stack_source_mode={{ home_stack_source_mode }}.'
+  when: home_stack_source_mode in ["mounted", "local_copy"]
 - name: Require supported source mode
   ansible.builtin.assert:
-    that: ['home_stack_source_mode in ["git", "mounted"]']
-    fail_msg: home_stack_source_mode must be 'git' or 'mounted'.
+    that: ['home_stack_source_mode in ["git", "mounted", "local_copy"]']
+    fail_msg: home_stack_source_mode must be 'git', 'mounted', or 'local_copy'.
 - name: Require Git source configuration
   ansible.builtin.assert:
     that:

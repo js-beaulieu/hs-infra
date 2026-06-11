@@ -1,0 +1,50 @@
+---
+home_stack_admin_user: vagrant
+home_stack_deploy_user: deploy
+home_stack_deploy_authorized_keys:
+  - "{{ lookup('env', 'HOME_STACK_LOCAL_VM_DEPLOY_AUTHORIZED_KEY') }}"
+home_stack_timezone: Etc/UTC
+home_stack_ssh_port: 22
+home_stack_admin_cidrs: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+home_stack_firewall_web_exposure: direct
+home_stack_cloudflare_cidrs: []
+home_stack_firewall_extra_web_cidrs: []
+home_stack_app_dir: /opt/home-stack
+home_stack_compose_file: docker/compose.yml
+home_stack_env_file: /home/deploy/home-stack.env
+home_stack_source_mode: local_copy
+home_stack_domain: home-stack.localhost
+home_stack_acme_email: admin@home-stack.localhost
+home_stack_caddy_http_port: "{{ lookup('env', 'VM_HTTP_PORT') | default('8080', true) | int }}"
+home_stack_caddy_https_port: "{{ lookup('env', 'VM_HTTPS_PORT') | default('8443', true) | int }}"
+home_stack_public_auth_origin: "https://auth.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
+  \ }}"
+home_stack_public_web_origin: "https://tasks.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
+  \ }}"
+home_stack_public_api_origin: "https://api.tasks.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
+  \ }}"
+home_stack_mcp_resource_uri: "{{ home_stack_public_api_origin }}/mcp"
+home_stack_caddy_tls_directive: "tls /certs/local.pem /certs/local-key.pem"
+home_stack_caddy_trusted_proxies: [127.0.0.1/32, "::1/128"]
+home_stack_keycloak_admin_remote_ip_ranges: [private_ranges]
+home_stack_keycloak_admin_client_ip_ranges: "{{ home_stack_admin_cidrs }}"
+home_stack_keycloak_admin_username: "{{ lookup('env', 'HOME_STACK_LOCAL_VM_KEYCLOAK_ADMIN_USERNAME') | default('admin', true) }}"
+home_stack_keycloak_admin_password: "{{ lookup('env', 'HOME_STACK_LOCAL_VM_KEYCLOAK_ADMIN_PASSWORD') | default('vm-only-keycloak-admin-password', true) }}"
+home_stack_keycloak_db_name: keycloak
+home_stack_keycloak_db_user: keycloak
+home_stack_keycloak_db_password: "{{ lookup('env', 'HOME_STACK_LOCAL_VM_KEYCLOAK_DB_PASSWORD') | default('vm-only-keycloak-db-password', true) }}"
+home_stack_oauth2_proxy_client_secret: "{{ lookup('env', 'HOME_STACK_LOCAL_VM_OAUTH2_PROXY_CLIENT_SECRET') | default('vm-only-oauth-client-secret', true) }}"
+home_stack_oauth2_proxy_cookie_secret: "{{ lookup('env', 'HOME_STACK_LOCAL_VM_OAUTH2_PROXY_COOKIE_SECRET') | default('vm-only-cookie-secret-1234567890', true) }}"
+home_stack_tasks_db_name: tasks
+home_stack_tasks_db_user: tasks
+home_stack_tasks_db_password: "{{ lookup('env', 'HOME_STACK_LOCAL_VM_TASKS_DB_PASSWORD') | default('vm-only-tasks-db-password', true) }}"
+home_stack_mcp_access_token_lifespan_seconds: 31536000
+home_stack_oauth2_proxy_access_token_lifespan_seconds: 300
+home_stack_oauth2_proxy_provider_ca_files: /certs/rootCA.pem
+home_stack_oauth2_proxy_whitelist_domains: ".{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
+  \ }}"
+home_stack_agentgateway_ssl_cert_file: /certs/rootCA.pem
+home_stack_run_health_checks: true
+home_stack_health_check_url: "{{ home_stack_public_api_origin }}/health"
+home_stack_health_check_validate_certs: false
+home_stack_hide_secrets: false

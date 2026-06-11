@@ -7,6 +7,7 @@
 - Caddy is the only service publishing host ports. Every other service is private-Docker-network only.
 - Postgres is shared by Keycloak and tasks-api via separate databases, each on its own Docker network.
 - Auth stays at the gateway boundary: APIs consume trusted identity headers (`X-Auth-*`) injected by Caddy, oauth2-proxy, or agentgateway — never write JWT verification into individual APIs.
+- Human-facing docs live in `docs/`; keep `README.md` as a concise entrypoint and keep agent-specific instructions in this file.
 
 ## Commands
 
@@ -15,13 +16,14 @@ task start          # docker compose up -d --build
 task stop           # docker compose down
 task test           # run Python Playwright/httpx flow tests in Testcontainers
 task lint           # validate compose, caddy, oauth2-proxy, agentgateway, shellcheck
-task format         # npx prettier --check .
-task format:write   # npx prettier --write .
+task format         # ruff, yamlfix, and mdformat checks
+task format:write   # run ruff, yamlfix, and mdformat in-place
 task ci             # run test, lint, format in parallel
 ```
 
 - `task test` always starts an isolated Testcontainers Compose project; no pre-existing local stack is used.
 - Flow tests use `scripts/run-flow-tests.sh` and require `FLOW_TEST_ENV_FILE` or a `.env` file passed in.
+- Local VM work uses Vagrant/libvirt through `task vm:up`, `task vm:provision`, `task vm:deploy`, and `task vm:test`.
 
 ## Testing
 
@@ -45,6 +47,8 @@ task ci             # run test, lint, format in parallel
 - Backups/restore automation is intentionally deferred. You may mention it only when the user asks for backup/DR work, not as a repeated production-readiness finding.
 - `tasks-web` is a temporary placeholder/local static frontend. Do not treat the placeholder as a blocker unless the task is specifically about frontend production rollout.
 - MCP Dynamic Client Registration is intentionally enabled for connector onboarding. Do not tighten or remove DCR without explicit user direction; document and test the current allowlist behavior instead.
+- Production bootstrap is local-only and one-time from the user's workstation. GitHub Actions deploys run `site.yml` then `deploy.yml` on `main`.
+- Local Vagrant inventory is `ansible/inventories/local-vagrant/`; do not reintroduce the old `local-vm` inventory path.
 
 ## Style
 

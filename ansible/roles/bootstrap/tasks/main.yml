@@ -23,6 +23,7 @@
     append: true
     create_home: true
     state: present
+  become: true
 - name: Ensure deploy user exists without docker group membership
   ansible.builtin.user:
     name: '{{ home_stack_deploy_user }}'
@@ -31,6 +32,7 @@
     append: false
     create_home: true
     state: present
+  become: true
 - name: Require at least one deploy authorized key
   ansible.builtin.assert:
     that: [home_stack_deploy_authorized_keys | length > 0]
@@ -42,3 +44,4 @@
     key: "{{ home_stack_deploy_authorized_keys | join('\n') }}"
     exclusive: true
     state: present
+  become: true

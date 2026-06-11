@@ -1,225 +1,52 @@
 # Homelab Auth Gateway
 
-Greenfield Docker Compose stack for a homelab auth gateway. Auth stays at the gateway boundary: private APIs consume trusted identity headers injected by Caddy, oauth2-proxy, or agentgateway.
+Docker Compose stack for a personal homelab auth gateway. Auth stays at the gateway boundary: private APIs consume trusted identity headers injected by Caddy, oauth2-proxy, or agentgateway.
 
-## Services
+## Architecture
 
-- `caddy`: only public entrypoint, publishes `80` and `443`.
-- `keycloak`: IdP at `https://auth.${DOMAIN}/realms/home-stack`.
-- `postgres`: shared private database for Keycloak and tasks-api.
-- `oauth2-proxy`: browser SSO/session checks for app hosts and API hosts sharing a parent-domain session cookie.
-- `redis`: private oauth2-proxy session store.
-- `agentgateway`: MCP OAuth/resource gateway for `/mcp` on `api.tasks.${DOMAIN}`.
-- `tasks-api`: private placeholder API on the `tasks-api` network.
-- `tasks-web`: private static placeholder for browser `/` on a separate frontend network.
-- `postgres-bootstrap`: idempotently creates databases, users, and grants for every service that needs Postgres, on every start.
-- `keycloak-bootstrap`: idempotently creates the realm, groups, clients, and protocol mappers, on every start.
-- `agentgateway-bootstrap`: renders `agentgateway/config.yaml` from `config.yaml.tmpl` via `envsubst` inside a container, on every start.
+- Caddy is the only public entrypoint and the only service publishing host ports.
+- Keycloak provides the `home-stack` realm.
+- oauth2-proxy handles browser SSO/session checks.
+- agentgateway handles MCP OAuth/resource gateway routes.
+- Postgres is shared privately by Keycloak and Tasks with separate databases and Docker networks.
+- Tasks API and Tasks web run behind the gateway; APIs trust gateway-injected identity headers, not direct JWT verification.
 
-Every service has explicit network membership. There is no implicit shared default app network. Postgres is attached to separate Keycloak and tasks database networks so app services do not join the Keycloak DB network directly.
+See [architecture overview](docs/architecture/overview.md) for service details and Compose layout.
 
-## Environment
+## Quick Start
 
-Copy `.env.example` to `.env` and replace all placeholder secrets.
-
-Required generated secrets:
-
-- `KEYCLOAK_ADMIN_PASSWORD`
-- `KEYCLOAK_DB_PASSWORD`
-- `OAUTH2_PROXY_CLIENT_SECRET`
-- `OAUTH2_PROXY_COOKIE_SECRET`
-
-Generate the cookie secret with:
+Copy `.env.example` to `.env`, replace placeholder secrets, then run:
 
 ```sh
-openssl rand -base64 32 | tr '+/' '-_'
+task start
 ```
 
-Image versions live in `docker/core.yml` for shared platform services and `docker/tasks.yml` for the Tasks app. The Tasks API intentionally tracks `ghcr.io/js-beaulieu/tasks-api:latest` because this is a single-environment homelab stack and app updates are expected to be automated by Watchtower or an equivalent updater. Do not treat that app image tag as an accidental production-readiness issue for this repo.
-
-## Accepted Production Tradeoffs
-
-This stack is production-oriented for a personal homelab, not a multi-environment commercial platform. These choices are intentional unless explicitly revisited:
-
-- `tasks-api` uses a mutable `latest` tag for the user's own service. Third-party platform services remain pinned to explicit upstream version tags.
-- App APIs own their schema migration process. This repo only provisions the shared Postgres instance, databases, users, and grants.
-- Database/volume backups and restore drills are a later operational work item. Persistent volumes are defined, but this repo does not yet automate backups.
-- The bundled `tasks-web` service is a temporary local/static placeholder. Production frontend hosting may move to a CDN/static origin while keeping the same gateway/API contract.
-- MCP Dynamic Client Registration is deliberately enabled for client onboarding. Scope and trusted-host restrictions are configured here, but further tightening should wait for real Claude/ChatGPT connector validation.
-
-## Local HTTPS
-
-Use mkcert for local TLS so browsers, oauth2-proxy, and agentgateway can trust the same local CA. Local domains use `*.home-stack.localhost`, so `auth.home-stack.localhost` and `tasks.home-stack.localhost` resolve to loopback without editing `/etc/hosts`.
+Useful commands:
 
 ```sh
-mkcert -install
-mkcert -cert-file certs/local.pem -key-file certs/local-key.pem auth.home-stack.localhost tasks.home-stack.localhost api.tasks.home-stack.localhost
-cp "$(mkcert -CAROOT)/rootCA.pem" certs/rootCA.pem
+task start          # docker compose up -d --build
+task stop           # docker compose down
+task test           # isolated Testcontainers flow tests
+task lint           # compose, caddy, oauth2-proxy, agentgateway, shellcheck
+task format         # ruff, yamlfix, and mdformat checks
+task ci             # test, lint, and format
 ```
 
-The local `.env` values intentionally do not use Cloudflare as a trusted proxy. Local admin access is controlled by direct/private peer ranges:
+See [local development](docs/development/local.md) for local TLS, initial checks, and VM testing.
 
-```dotenv
-DOMAIN=home-stack.localhost
-CADDY_TLS_DIRECTIVE="tls /certs/local.pem /certs/local-key.pem"
-CADDY_TRUSTED_PROXIES="127.0.0.1/32 ::1/128"
-KEYCLOAK_ADMIN_REMOTE_IP_RANGES="private_ranges"
-KEYCLOAK_ADMIN_CLIENT_IP_RANGES="private_ranges"
-OAUTH2_PROXY_PROVIDER_CA_FILES=/certs/rootCA.pem
-AGENTGATEWAY_SSL_CERT_FILE=/certs/rootCA.pem
-```
+## Production
 
-## Production HTTPS
+Production host bootstrap is local-only and should be run once from your workstation. Routine production runs happen through `.github/workflows/deploy.yml` on pushes to `main` or manual dispatch; the workflow runs `site.yml` first, then `deploy.yml`.
 
-For production, leave `CADDY_TLS_DIRECTIVE` empty and point DNS:
+See [Ansible deployment](docs/deployment/ansible.md) and [production deployment](docs/deployment/production.md).
 
-- `auth.${DOMAIN}` → VPS/Caddy
-- `api.tasks.${DOMAIN}` → VPS/Caddy
-- `tasks.${DOMAIN}` → CDN/static host
+## Documentation
 
-Caddy will use ACME/Let's Encrypt for the API host.
-
-If the origin is behind Cloudflare proxy, set:
-
-- `CADDY_TRUSTED_PROXIES` to the current Cloudflare IPv4 and IPv6 CIDR list.
-- `KEYCLOAK_ADMIN_REMOTE_IP_RANGES` to the same Cloudflare CIDR list.
-- `KEYCLOAK_ADMIN_CLIENT_IP_RANGES` to your real admin public CIDR allowlist.
-
-This enforces both required checks for Keycloak admin paths: the immediate peer must be Cloudflare, and the derived client IP must be an allowed admin IP. Do not trust `CF-Connecting-IP` or `X-Forwarded-For` from arbitrary direct peers. Prefer firewalling origin ports `80` and `443` to Cloudflare ranges plus explicit management networks.
-
-Cloudflare CIDRs are managed statically in `.env` for now. If automatic updates are needed, replace the standard Caddy image with a custom build that includes a Cloudflare trusted-proxy module, or regenerate `.env` from Cloudflare's published `ips-v4` and `ips-v6` endpoints.
-
-## Route Precedence
-
-`api.tasks.${DOMAIN}` is routed in this order:
-
-1. `/oauth2/*` goes directly to oauth2-proxy (callback).
-1. MCP OAuth metadata exact paths go to agentgateway.
-1. Exact `GET`/`HEAD /health` goes to `tasks-api` `/health` without auth.
-1. Exact `/mcp` and `/mcp/*` go to agentgateway and must not browser-redirect.
-1. `/` and `/*` use oauth2-proxy auth checks and return `401/403`, not login redirects.
-1. Unsafe methods require `Origin: https://tasks.${DOMAIN}` or same-origin `Referer`.
-1. `OPTIONS` preflight is handled before auth with CORS for `https://tasks.${DOMAIN}`.
-
-`tasks.${DOMAIN}` is routed in this order:
-
-1. `/oauth2/*` goes directly to oauth2-proxy.
-1. MCP OAuth metadata exact paths go to agentgateway (backwards-compatible).
-1. Exact `GET`/`HEAD /api/health` strips `/api` and goes to `tasks-api` `/health` without auth.
-1. Exact `/api/mcp` and `/api/mcp/*` go to agentgateway.
-1. Exact `/api` and `/api/*` use oauth2-proxy auth checks, strip `/api`, and return `401/403`.
-1. `/` uses oauth2-proxy auth checks and sends unauthenticated browsers to `/oauth2/start`.
-
-Do not use `/mcp*` or `/api/mcp*`. Use exact and prefix matches only.
-
-`auth.${DOMAIN}` only proxies the intended `home-stack` realm public endpoints. The Keycloak `master` realm and arbitrary additional realms are not public through Caddy.
-
-**Important:** `tasks.${DOMAIN}` is the frontend host (or a local placeholder). In production, the API routes on `tasks.${DOMAIN}` are backwards-compatible; the canonical API host is `api.tasks.${DOMAIN}`.
-
-## Trusted Headers
-
-Private APIs may read these headers only because public routes strip inbound spoofed values before auth and the gateway injects trusted values after auth:
-
-- `X-Auth-Subject`
-- `X-Auth-Email`
-- `X-Auth-Groups`
-- `X-Auth-Name`
-- `X-Auth-Preferred-Username`
-
-`tasks-api` consumes `X-User-ID`, `X-User-Name`, and `X-User-Email`. Caddy maps oauth2-proxy's trusted subject/user header into `X-User-ID` and keeps email separate as `X-User-Email`; do not set `user_id_claim` unless this is revalidated against the current oauth2-proxy behavior. Use `GET https://api.tasks.${DOMAIN}/users/me` for initial verification; it returns the authenticated user record that was looked up or auto-provisioned from gateway headers. The old `GET https://tasks.${DOMAIN}/api/users/me` path is kept only as a temporary compatibility route.
-
-## Browser API CSRF
-
-Unsafe browser API methods on `api.tasks.${DOMAIN}` require `Origin: https://tasks.${DOMAIN}` or a strict same-frontend `Referer` before proxying to `tasks-api`. API responses and preflights use credentialed CORS for that exact frontend origin only. MCP is separate and uses bearer auth on `/mcp`; do not weaken browser cookie CSRF checks to support future external API clients.
-
-Future external API clients should get explicit bearer-auth routes, separate hosts, or separate gateway policies.
-
-## Keycloak Bootstrap
-
-`keycloak-bootstrap` creates:
-
-- Realm `home-stack`.
-- Groups `/homelab-users`, `/tasks-users`, `/mcp-users`, and `/mcp-writers`.
-- Confidential client `oauth2-proxy-tasks` with redirect URIs `https://api.tasks.${DOMAIN}/oauth2/callback` and temporary compatibility URI `https://tasks.${DOMAIN}/oauth2/callback`.
-- Public client `tasks-mcp` for initial local MCP testing.
-- `mcp` client scope carrying the MCP audience and group claim for dynamically registered MCP clients.
-- Group claim mappers and audience mappers.
-
-The realm default access-token lifespan is set from `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` and defaults to one year. This is intentional for MCP/DCR clients: several current MCP clients have long-standing refresh or expired-token re-authentication bugs, so short-lived MCP access tokens can break otherwise valid integrations. Do not treat this default as an accidental production-hardening gap unless the MCP client ecosystem behavior changes. The `oauth2-proxy-tasks` client is explicitly pinned back to `OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS` (default five minutes), so browser/API auth does not inherit the long MCP/DCR lifetime.
-
-Context:
-
-- https://github.com/anthropics/claude-code/issues/26281
-- https://github.com/axiomhq/mcp/pull/63
-- https://github.com/Doist/todoist-mcp/issues/400#issuecomment-4096763597
-
-Create users in Keycloak and assign groups before testing login.
-
-## MCP Status
-
-The intended MCP resource URI is:
-
-```txt
-https://api.tasks.${DOMAIN}/mcp
-```
-
-The protected-resource metadata route is:
-
-```txt
-https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
-```
-
-MCP access tokens must include audience `https://api.tasks.${DOMAIN}/mcp` and group `/mcp-users`. Dynamically registered MCP clients should request the `mcp` scope, which carries the required audience and groups mapper. Tokens intentionally default to a long one-year `expires_in` via `MCP_ACCESS_TOKEN_LIFESPAN_SECONDS` because current MCP clients can mishandle token refresh or expired-token re-auth. The external `/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint at `/api/mcp`. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required. Validate full MCP initialize/session behavior with Claude, ChatGPT custom MCPs, or an MCP inspector.
-
-The MCP auth policy pattern is intended for all MCP resources, including future apps. Each MCP resource still needs its own exact OAuth protected-resource metadata path, `resource` URI, token audience, backend target, and any app-specific route match. Keep the shared requirements the same unless deliberately changed: strict MCP auth, issuer/JWKS validation, audience validation, `/mcp-users`, spoofed-header stripping, and no bearer-token forwarding to app APIs.
-
-DCR is enabled for MCP onboarding with scopes limited to `openid`, `profile`, `email`, and `mcp`, and trusted redirect/client hosts seeded for Claude and ChatGPT. Treat that as a first-pass allowlist: tighten it further after testing the real hosted connector flows.
-
-**Backwards compatibility:** The old paths on `https://tasks.${DOMAIN}/api/mcp` and metadata at `https://tasks.${DOMAIN}/.well-known/oauth-protected-resource/api/mcp` are still routed for transition, but tokens must use the new canonical audience `https://api.tasks.${DOMAIN}/mcp`. Existing clients with tokens audience-bound to the old resource URI must be updated.
-
-## Internal Issuer Resolution
-
-Keycloak emits the public issuer `https://auth.${DOMAIN}/realms/home-stack`, and tokens are validated against that public issuer. Agentgateway fetches JWKS directly from Keycloak at `http://keycloak:8080/realms/home-stack/protocol/openid-connect/certs` on the private `auth` network, avoiding `.localhost` DNS special-casing and fixed Docker IPs.
-
-## Add Another App
-
-For each new app:
-
-- Create a dedicated Docker network for that app.
-- Attach Caddy and only the app-specific private services to that network.
-- Add app-specific route precedence to `caddy/<app>.caddy`.
-- Add a Keycloak group such as `/newapp-users` and enforce it at the gateway, not inside the API.
-- Register callback URIs or create a per-app oauth2-proxy client if shared callback handling becomes ambiguous.
-
-## Future Service-to-Service
-
-Future service-to-service calls should go through an internal gateway that verifies signed JWTs, strips spoofable identity headers, and injects the same trusted header contract. APIs should continue consuming trusted headers and should not each grow custom JWT verification logic.
-
-## Run
-
-`docker/compose.yml` is the default entrypoint and includes the shared platform file plus the Tasks app file:
-
-- `docker/core.yml`: Caddy, Keycloak, oauth2-proxy, Redis, Postgres, agentgateway, and shared networks/volumes.
-- `docker/tasks.yml`: Tasks services plus Tasks-specific network attachments for Caddy, agentgateway, and Postgres.
-- `caddy/Caddyfile`: shared Caddy options/snippets and Keycloak routes.
-- `caddy/tasks.caddy`: Tasks web/API/MCP routes.
-
-```sh
-docker compose --env-file .env -f docker/compose.yml config
-docker compose --env-file .env -f docker/compose.yml up -d --build
-```
-
-Initial checks:
-
-```sh
-curl -i https://api.tasks.${DOMAIN}/health
-curl -i https://api.tasks.${DOMAIN}/
-curl -i https://api.tasks.${DOMAIN}/users/me
-curl -i https://api.tasks.${DOMAIN}/mcp
-curl -i https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
-curl -i https://tasks.${DOMAIN}/api/health          # backwards compat
-curl -i https://tasks.${DOMAIN}/api/mcp               # backwards compat
-curl -i https://tasks.${DOMAIN}/.well-known/oauth-protected-resource/api/mcp # backwards compat
-```
-
-Only Caddy publishes host ports. Direct host access to backend API, Keycloak, Redis, Postgres, oauth2-proxy, and agentgateway ports should fail. The frontend container and API container are on separate Docker networks; only Caddy and agentgateway share the private API network with `tasks-api`.
+- [Docs index](docs/README.md)
+- [Architecture overview](docs/architecture/overview.md)
+- [Routes and gateway security](docs/architecture/routes.md)
+- [MCP gateway](docs/architecture/mcp.md)
+- [Keycloak](docs/architecture/keycloak.md)
+- [Local development](docs/development/local.md)
+- [Production deployment](docs/deployment/production.md)
+- [Ansible deployment](docs/deployment/ansible.md)

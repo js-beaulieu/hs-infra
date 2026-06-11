@@ -9,6 +9,8 @@ certs/*.jks
 agentgateway/config.yaml
 .venv/
 .ansible/
+.local/
+.vagrant/
 __pycache__/
 *.py[cod]
 test-results/
@@ -21,6 +23,3 @@ tests/flows/.testcontainers-state.json
 ansible/inventories/production/hosts.yml
 ansible/inventories/production/group_vars/all.yml
 ansible/inventories/production/group_vars/vault.yml
-ansible/inventories/local-vm/hosts.yml
-ansible/inventories/local-vm/group_vars/all.yml
-ansible/inventories/local-vm/group_vars/vault.yml

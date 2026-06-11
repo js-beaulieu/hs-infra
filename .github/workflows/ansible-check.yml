@@ -1,9 +1,7 @@
-name: Ansible Check
+name: PR Check
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
 jobs:
   stack-checks:

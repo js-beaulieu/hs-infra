@@ -4,6 +4,9 @@ set -eu
 apply_rules() {
   tool="$1"
   shift
+  # DOCKER-USER sees packets after Docker DNAT, so match Caddy's container
+  # ports rather than the configurable host-published ports.
+  web_ports="80,443"
 
   if ! command -v "$tool" >/dev/null 2>&1; then
     return 0
@@ -15,12 +18,12 @@ apply_rules() {
 {% if home_stack_firewall_web_exposure == 'cloudflare' %}
 {% for cidr in (home_stack_cloudflare_cidrs + home_stack_firewall_extra_web_cidrs) %}
 {% if ':' not in cidr %}
-  [ "$tool" = "iptables" ] && "$tool" -A DOCKER-USER -p tcp -m multiport --dports 80,443 -s {{ cidr }} -j RETURN
+  [ "$tool" = "iptables" ] && "$tool" -A DOCKER-USER -p tcp -m multiport --dports "$web_ports" -s {{ cidr }} -j RETURN
 {% else %}
-  [ "$tool" = "ip6tables" ] && "$tool" -A DOCKER-USER -p tcp -m multiport --dports 80,443 -s {{ cidr }} -j RETURN
+  [ "$tool" = "ip6tables" ] && "$tool" -A DOCKER-USER -p tcp -m multiport --dports "$web_ports" -s {{ cidr }} -j RETURN
 {% endif %}
 {% endfor %}
-  "$tool" -A DOCKER-USER -p tcp -m multiport --dports 80,443 -j DROP
+  "$tool" -A DOCKER-USER -p tcp -m multiport --dports "$web_ports" -j DROP
 {% endif %}
   "$tool" -A DOCKER-USER -j RETURN
 }

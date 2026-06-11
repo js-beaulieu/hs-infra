@@ -28,7 +28,9 @@
     rule: allow
     proto: tcp
     to_port: '{{ item }}'
-  loop: ['80', '443']
+  loop:
+    - '{{ home_stack_caddy_http_port }}'
+    - '{{ home_stack_caddy_https_port }}'
   when: home_stack_firewall_web_exposure == "direct"
 - name: Allow proxied HTTP and HTTPS from trusted edge CIDRs
   community.general.ufw:
@@ -36,7 +38,7 @@
     proto: tcp
     from_ip: '{{ item.0 }}'
     to_port: '{{ item.1 }}'
-  loop: "{{ (home_stack_cloudflare_cidrs + home_stack_firewall_extra_web_cidrs) | product(['80', '443']) | list }}"
+  loop: "{{ (home_stack_cloudflare_cidrs + home_stack_firewall_extra_web_cidrs) | product([home_stack_caddy_http_port, home_stack_caddy_https_port]) | list }}"
   when: home_stack_firewall_web_exposure == "cloudflare"
 - name: Enable UFW
   community.general.ufw:

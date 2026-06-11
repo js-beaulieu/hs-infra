@@ -164,7 +164,7 @@ Update `docker/.env.example`.
 
 ### Phase 8: Documentation
 
-Update `README.md` and `IMPLEMENTATION_PLAN.md`.
+Update `README.md` and `docs/planning/implementation-plan.md`.
 
 - Replace `tasks.${DOMAIN}/api` with `api.tasks.${DOMAIN}`.
 - Replace `tasks.${DOMAIN}/api/mcp` with `api.tasks.${DOMAIN}/mcp`.

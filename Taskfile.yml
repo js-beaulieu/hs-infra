@@ -1,15 +1,137 @@
 version: "3"
 
+vars:
+  STACK_PROJECT_NAME: home-stack
+  VM_NAME: home-stack-local
+  VM_STATE_DIR: .local/vm
+  VM_HTTP_PORT: 8080
+  VM_HTTPS_PORT: 8443
+  VM_INVENTORY: ansible/inventories/local-vagrant/hosts.yml
+
 tasks:
   start:
     desc: Start the stack
     cmds:
-      - docker compose --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml up -d --build
+      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml up -d --build
 
   stop:
     desc: Stop the stack
     cmds:
-      - docker compose -f docker/compose.yml down
+      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml down
+
+  vm:up:
+    desc: Create/start the disposable local Vagrant/libvirt VM
+    cmds:
+      - >-
+        VM_NAME={{.VM_NAME}}
+        VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        VAGRANT_DOTFILE_PATH={{.VM_STATE_DIR}}/vagrant
+        vagrant up --provider=libvirt
+
+  vm:status:
+    desc: Show local Vagrant VM status
+    cmds:
+      - >-
+        VM_NAME={{.VM_NAME}}
+        VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        VAGRANT_DOTFILE_PATH={{.VM_STATE_DIR}}/vagrant
+        vagrant status
+
+  vm:down:
+    desc: Stop the disposable local Vagrant VM
+    cmds:
+      - >-
+        VM_NAME={{.VM_NAME}}
+        VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        VAGRANT_DOTFILE_PATH={{.VM_STATE_DIR}}/vagrant
+        vagrant halt
+
+  vm:destroy:
+    desc: Stop and remove local Vagrant VM state
+    cmds:
+      - >-
+        VM_NAME={{.VM_NAME}}
+        VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        VAGRANT_DOTFILE_PATH={{.VM_STATE_DIR}}/vagrant
+        vagrant destroy -f
+      - rm -rf {{.VM_STATE_DIR}}
+
+  vm:ssh-config:
+    desc: Write local Vagrant SSH config for Ansible
+    cmds:
+      - |
+        mkdir -p {{.VM_STATE_DIR}}
+        VM_NAME={{.VM_NAME}} \
+        VM_HTTP_PORT={{.VM_HTTP_PORT}} \
+        VM_HTTPS_PORT={{.VM_HTTPS_PORT}} \
+        VAGRANT_DOTFILE_PATH={{.VM_STATE_DIR}}/vagrant \
+        vagrant ssh-config {{.VM_NAME}} | sed 's/^Host .*/Host local-vm/' > {{.VM_STATE_DIR}}/ssh-config
+
+  vm:check-certs:
+    desc: Ensure local VM TLS files exist
+    cmds:
+      - |
+        test -f certs/local.pem && test -f certs/local-key.pem && test -f certs/rootCA.pem || {
+          printf '%s\n' 'Missing certs/local.pem, certs/local-key.pem, or certs/rootCA.pem.' >&2
+          printf '%s\n' 'Run the mkcert commands documented in README.md before vm:deploy.' >&2
+          exit 1
+        }
+
+  vm:provision:
+    desc: Run bootstrap and site playbooks against the local VM
+    deps: [vm:ssh-config]
+    cmds:
+      - |
+        key_file="$(awk '$1 == "IdentityFile" { print $2 }' {{.VM_STATE_DIR}}/ssh-config | tr -d '"')"
+        export HOME_STACK_LOCAL_VM_DEPLOY_AUTHORIZED_KEY="$(ssh-keygen -y -f "$key_file")"
+        export VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        export VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        uv run --group dev ansible-playbook -i {{.VM_INVENTORY}} ansible/playbooks/bootstrap.yml
+        uv run --group dev ansible-playbook -i {{.VM_INVENTORY}} ansible/playbooks/site.yml
+
+  vm:deploy:
+    desc: Sync this checkout and deploy it to the local VM
+    deps: [vm:ssh-config, vm:check-certs]
+    cmds:
+      - >-
+        VM_NAME={{.VM_NAME}}
+        VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        VAGRANT_DOTFILE_PATH={{.VM_STATE_DIR}}/vagrant
+        vagrant rsync
+      - |
+        key_file="$(awk '$1 == "IdentityFile" { print $2 }' {{.VM_STATE_DIR}}/ssh-config | tr -d '"')"
+        export HOME_STACK_LOCAL_VM_DEPLOY_AUTHORIZED_KEY="$(ssh-keygen -y -f "$key_file")"
+        export VM_HTTP_PORT={{.VM_HTTP_PORT}}
+        export VM_HTTPS_PORT={{.VM_HTTPS_PORT}}
+        uv run --group dev ansible-playbook -i {{.VM_INVENTORY}} ansible/playbooks/deploy.yml
+
+  vm:test:
+    desc: Run local VM smoke checks
+    cmds:
+      - |
+        for _ in $(seq 1 60); do
+          if curl -kfsS https://api.tasks.home-stack.localhost:{{.VM_HTTPS_PORT}}/health; then
+            exit 0
+          fi
+          sleep 2
+        done
+        exit 1
+      - |
+        for _ in $(seq 1 60); do
+          if curl -kfsS https://auth.home-stack.localhost:{{.VM_HTTPS_PORT}}/realms/home-stack/.well-known/openid-configuration >/dev/null; then
+            exit 0
+          fi
+          sleep 2
+        done
+        exit 1
+      - |
+        status="$(curl -ksS -o /dev/null -w '%{http_code}' https://auth.home-stack.localhost:{{.VM_HTTPS_PORT}}/realms/master/.well-known/openid-configuration)"
+        test "$status" = "404"
 
   test:
     desc: Run isolated Testcontainers flow tests
@@ -23,7 +145,7 @@ tasks:
   lint:compose:
     desc: Validate Docker Compose config
     cmds:
-      - docker compose --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml config --quiet
+      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml config --quiet
 
   lint:caddy:
     desc: Validate Caddy config
@@ -59,19 +181,21 @@ tasks:
     desc: Validate agentgateway config
     cmds:
       - |
-        mkdir -p /tmp/agentgateway-lint
-        echo '{"keys":[]}' > /tmp/agentgateway-lint/jwks.json
+        tmpdir="$(mktemp -d)"
+        trap 'rm -rf "$tmpdir"' EXIT
+        chmod 755 "$tmpdir"
+        echo '{"keys":[]}' > "$tmpdir/jwks.json"
         sed \
           -e 's|\${AGENTGATEWAY_ISSUER}|https://auth.test.local/realms/home-stack|g' \
           -e 's|\${AGENTGATEWAY_JWKS_URL}|https://auth.test.local/realms/home-stack/protocol/openid-connect/certs|g' \
           -e 's|\${MCP_RESOURCE_URI}|https://api.tasks.test.local/mcp|g' \
           -e 's|url: "https://auth.test.local/realms/home-stack/protocol/openid-connect/certs"|file: "/etc/agentgateway/jwks.json"|g' \
-          agentgateway/config.yaml.tmpl > /tmp/agentgateway-lint/config.yaml
+          agentgateway/config.yaml.tmpl > "$tmpdir/config.yaml"
+        chmod 644 "$tmpdir/jwks.json" "$tmpdir/config.yaml"
         docker run --rm \
-          -v /tmp/agentgateway-lint:/etc/agentgateway:ro \
+          -v "$tmpdir:/etc/agentgateway:ro" \
           cr.agentgateway.dev/agentgateway:v1.2.1 \
           -f /etc/agentgateway/config.yaml --validate-only
-        rm -rf /tmp/agentgateway-lint
 
   lint:sh:
     desc: Shellcheck scripts

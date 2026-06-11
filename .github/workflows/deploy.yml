@@ -142,5 +142,8 @@ jobs:
           (base / "group_vars" / "all.yml").write_text(json.dumps(group_vars, indent=2) + "\n")
           PY
 
+      - name: Converge host
+        run: uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/playbooks/site.yml
+
       - name: Deploy stack
         run: uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/playbooks/deploy.yml
