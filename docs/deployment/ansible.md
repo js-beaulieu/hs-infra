@@ -155,7 +155,6 @@ Required GitHub Environment secrets are:
 
 ```txt
 SSH_PRIVATE_KEY
-KNOWN_HOSTS
 SOPS_AGE_KEY
 ```
 
