@@ -1,22 +1,4 @@
 ---
-- name: Check stack directory prepared by site.yml
-  ansible.builtin.stat:
-    path: '{{ home_stack_app_dir }}'
-  register: home_stack_app_dir_stat
-- name: Require prepared root-owned stack directory
-  ansible.builtin.assert:
-    that:
-      - home_stack_app_dir_stat.stat.isdir | default(false)
-      - (home_stack_app_dir_stat.stat.pw_name | default('')) == "root"
-    fail_msg: '{{ home_stack_app_dir }} must be prepared by playbooks/site.yml before
-      deploy.yml runs.'
-  when: home_stack_source_mode == "git"
-- name: Require mounted stack directory
-  ansible.builtin.assert:
-    that: [home_stack_app_dir_stat.stat.isdir | default(false)]
-    fail_msg: '{{ home_stack_app_dir }} must be mounted before deploy.yml runs with
-      home_stack_source_mode={{ home_stack_source_mode }}.'
-  when: home_stack_source_mode in ["mounted", "local_copy"]
 - name: Require supported source mode
   ansible.builtin.assert:
     that: ['home_stack_source_mode in ["git", "mounted", "local_copy"]']
