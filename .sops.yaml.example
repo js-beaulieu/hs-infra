@@ -1,0 +1,4 @@
+# Copy to .sops.yaml and replace the recipient with your age public key.
+creation_rules:
+  - path_regex: ansible/inventories/production/group_vars/all/.*\.sops\.ya?ml$
+    age: age1replacewithyourproductionrecipient0000000000000000000000000000000

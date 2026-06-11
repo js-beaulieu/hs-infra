@@ -133,6 +133,40 @@ tasks:
         status="$(curl -ksS -o /dev/null -w '%{http_code}' https://auth.home-stack.localhost:{{.VM_HTTPS_PORT}}/realms/master/.well-known/openid-configuration)"
         test "$status" = "404"
 
+  sops:keygen:
+    desc: Generate an age key pair and write it into ~/.config/sops/age/keys.txt and .sops.yaml
+    cmds:
+      - mkdir -p ~/.config/sops/age
+      - age-keygen -o ~/.config/sops/age/keys.txt
+      - chmod 600 ~/.config/sops/age/keys.txt
+      - cp .sops.yaml.example .sops.yaml
+      - |
+        pub_key="$(grep '# public key' ~/.config/sops/age/keys.txt | sed 's/.*: //')"
+        sed -i "s|age1replacewithyourproductionrecipient0000000000000000000000000000000|${pub_key}|" .sops.yaml
+        printf '\nPublic key: %s\n' "$pub_key"
+        printf 'Updated .sops.yaml with your age recipient.\n'
+
+  sops:edit:
+    desc: Edit the production vault in place (decrypts, opens $EDITOR, re-encrypts on save)
+    cmds:
+      - sops ansible/inventories/production/group_vars/all/vault.sops.yml
+
+  sops:view:
+    desc: Decrypt and print the production vault to stdout
+    cmds:
+      - sops --decrypt ansible/inventories/production/group_vars/all/vault.sops.yml
+
+  sops:get:
+    desc: "Print a single vault value (usage: task sops:get -- home_stack_domain)"
+    cmds:
+      - |
+        sops --decrypt --extract '["{{.CLI_ARGS}}"]' ansible/inventories/production/group_vars/all/vault.sops.yml
+
+  sops:encrypt:
+    desc: Encrypt the production vault file in place
+    cmds:
+      - sops --encrypt --in-place ansible/inventories/production/group_vars/all/vault.sops.yml
+
   test:
     desc: Run isolated Testcontainers flow tests
     cmds:
@@ -140,7 +174,7 @@ tasks:
 
   lint:
     desc: Run all config validations
-    deps: [lint:compose, lint:caddy, lint:oauth2-proxy, lint:agentgateway, lint:sh]
+    deps: [lint:compose, lint:caddy, lint:oauth2-proxy, lint:agentgateway, lint:github-actions, lint:sh]
 
   lint:compose:
     desc: Validate Docker Compose config
@@ -207,12 +241,21 @@ tasks:
           postgres/bootstrap.sh \
           scripts/run-flow-tests.sh
 
+  lint:github-actions:
+    desc: Validate GitHub Actions workflows
+    cmds:
+      - >-
+        docker run --rm
+        -v $PWD:/repo:ro
+        -w /repo
+        rhysd/actionlint:1.7.7
+
   format:
     desc: Check formatting (Python, YAML, Markdown)
     cmds:
       - uv run ruff format --check .
       - uv run ruff check .
-      - uv run yamlfix --check ansible/
+      - uv run yamlfix --check --exclude '**/*.sops.yml' --exclude '.sops.yaml' ansible/
       - uv run mdformat --check *.md
 
   format:write:
@@ -220,7 +263,7 @@ tasks:
     cmds:
       - uv run ruff format .
       - uv run ruff check --fix .
-      - uv run yamlfix ansible/
+      - uv run yamlfix --exclude '**/*.sops.yml' --exclude '.sops.yaml' ansible/
       - uv run mdformat *.md
 
   ci:

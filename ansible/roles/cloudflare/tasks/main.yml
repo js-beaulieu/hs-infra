@@ -1,0 +1,43 @@
+---
+- name: Fetch Cloudflare IPv4 ranges
+  ansible.builtin.uri:
+    url: '{{ home_stack_cloudflare_ips_v4_url }}'
+    method: GET
+    return_content: true
+    status_code: 200
+  register: home_stack_cloudflare_ips_v4
+  when: home_stack_cloudflare_fetch_cidrs | bool
+  delegate_to: localhost
+  become: false
+- name: Fetch Cloudflare IPv6 ranges
+  ansible.builtin.uri:
+    url: '{{ home_stack_cloudflare_ips_v6_url }}'
+    method: GET
+    return_content: true
+    status_code: 200
+  register: home_stack_cloudflare_ips_v6
+  when: home_stack_cloudflare_fetch_cidrs | bool
+  delegate_to: localhost
+  become: false
+- name: Set fetched Cloudflare CIDRs
+  ansible.builtin.set_fact:
+    home_stack_cloudflare_cidrs: >-
+      {{
+        (
+          home_stack_cloudflare_ips_v4.content.splitlines() +
+          home_stack_cloudflare_ips_v6.content.splitlines()
+        ) | map('trim') | reject('equalto', '') | list
+      }}
+  when: home_stack_cloudflare_fetch_cidrs | bool
+- name: Use Cloudflare CIDRs as Caddy trusted proxies by default
+  ansible.builtin.set_fact:
+    home_stack_caddy_trusted_proxies: '{{ home_stack_cloudflare_cidrs }}'
+  when:
+    - home_stack_firewall_web_exposure == 'cloudflare'
+    - home_stack_caddy_trusted_proxies | default([]) | length == 0
+- name: Use Cloudflare CIDRs as Keycloak admin remote ranges by default
+  ansible.builtin.set_fact:
+    home_stack_keycloak_admin_remote_ip_ranges: '{{ home_stack_cloudflare_cidrs }}'
+  when:
+    - home_stack_firewall_web_exposure == 'cloudflare'
+    - home_stack_keycloak_admin_remote_ip_ranges | default([]) | length == 0

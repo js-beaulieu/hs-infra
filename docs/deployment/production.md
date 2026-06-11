@@ -10,15 +10,16 @@ For production, leave `CADDY_TLS_DIRECTIVE` empty and point DNS:
 
 Caddy will use ACME/Let's Encrypt for the API host.
 
-If the origin is behind Cloudflare proxy, set:
+Production deploys default to Cloudflare origin protection. When `home_stack_firewall_web_exposure: cloudflare`, Ansible fetches Cloudflare edge CIDRs from Cloudflare's official `ips-v4` and `ips-v6` endpoints during `site.yml` and `deploy.yml`, then uses those ranges for the host firewall, Caddy trusted proxies, and Keycloak admin remote-IP checks.
 
-- `CADDY_TRUSTED_PROXIES` to the current Cloudflare IPv4 and IPv6 CIDR list.
-- `KEYCLOAK_ADMIN_REMOTE_IP_RANGES` to the same Cloudflare CIDR list.
-- `KEYCLOAK_ADMIN_CLIENT_IP_RANGES` to your real admin public CIDR allowlist.
+Set in `vault.sops.yml`:
+
+- `home_stack_admin_cidrs` to your real admin public CIDR allowlist.
+- `home_stack_keycloak_admin_client_ip_ranges` only if Keycloak admin access should use a different client CIDR list.
 
 This enforces both required checks for Keycloak admin paths: the immediate peer must be Cloudflare, and the derived client IP must be an allowed admin IP. Do not trust `CF-Connecting-IP` or `X-Forwarded-For` from arbitrary direct peers. Prefer firewalling origin ports `80` and `443` to Cloudflare ranges plus explicit management networks.
 
-Cloudflare CIDRs are managed statically in `.env` for now. If automatic updates are needed, replace the standard Caddy image with a custom build that includes a Cloudflare trusted-proxy module, or regenerate `.env` from Cloudflare's published `ips-v4` and `ips-v6` endpoints.
+Override `home_stack_cloudflare_cidrs`, `home_stack_caddy_trusted_proxies`, or `home_stack_keycloak_admin_remote_ip_ranges` only when you intentionally need a static or non-Cloudflare edge list.
 
 ## GitHub Actions
 

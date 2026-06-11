@@ -1,0 +1,22 @@
+---
+# Copy to vault.sops.yml and encrypt with SOPS/age before committing.
+# Ansible loads the encrypted file directly through community.sops.
+
+# Required private/site-specific values.
+home_stack_admin_cidrs:
+  - 203.0.113.10/32
+home_stack_domain: example.invalid
+home_stack_acme_email: admin@example.invalid
+home_stack_keycloak_admin_password: replace-with-real-secret
+home_stack_keycloak_db_password: replace-with-real-secret
+home_stack_oauth2_proxy_client_secret: replace-with-real-secret
+home_stack_oauth2_proxy_cookie_secret: replace-with-real-secret
+home_stack_tasks_db_password: replace-with-real-secret
+
+# Optional connection/site overrides. Defaults are normally enough.
+# ansible_port: 22
+# home_stack_ssh_port: 22
+# home_stack_admin_user: debian
+# home_stack_deploy_user: deploy
+# home_stack_firewall_web_exposure: cloudflare
+# home_stack_keycloak_admin_client_ip_ranges: '{{ home_stack_admin_cidrs }}'

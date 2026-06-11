@@ -8,6 +8,28 @@ home_stack_git_repo: ''
 home_stack_git_version: main
 home_stack_deploy_user: deploy
 home_stack_deploy_group: '{{ home_stack_deploy_user }}'
+home_stack_domain: ''
+home_stack_acme_email: ''
+home_stack_public_auth_origin: https://auth.{{ home_stack_domain }}
+home_stack_public_web_origin: https://tasks.{{ home_stack_domain }}
+home_stack_public_api_origin: https://api.tasks.{{ home_stack_domain }}
+home_stack_mcp_resource_uri: '{{ home_stack_public_api_origin }}/mcp'
+home_stack_caddy_tls_directive: ''
+home_stack_caddy_http_port: 80
+home_stack_caddy_https_port: 443
+home_stack_caddy_trusted_proxies: []
+home_stack_keycloak_admin_remote_ip_ranges: []
+home_stack_keycloak_admin_client_ip_ranges: '{{ home_stack_admin_cidrs }}'
+home_stack_keycloak_admin_username: admin
+home_stack_keycloak_db_name: keycloak
+home_stack_keycloak_db_user: keycloak
+home_stack_oauth2_proxy_provider_ca_files: ''
+home_stack_oauth2_proxy_whitelist_domains: .{{ home_stack_domain }}
+home_stack_agentgateway_ssl_cert_file: ''
+home_stack_tasks_db_name: tasks
+home_stack_tasks_db_user: tasks
+home_stack_mcp_access_token_lifespan_seconds: 31536000
+home_stack_oauth2_proxy_access_token_lifespan_seconds: 300
 home_stack_hide_secrets: true
 home_stack_run_health_checks: true
 home_stack_health_check_url: '{{ home_stack_public_api_origin }}/health'

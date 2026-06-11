@@ -6,12 +6,22 @@ This deployment setup targets a Debian 13 VPS and keeps real infrastructure data
 
 Do not commit real domains, emails, VPS IPs, admin CIDRs, hostnames, SSH keys, or app secrets.
 
-Committed inventory files are examples only. Real files are ignored by git:
+The pipeline uses the committed production inventory:
 
 ```txt
-ansible/inventories/production/hosts.yml
-ansible/inventories/production/group_vars/all.yml
-ansible/inventories/production/group_vars/vault.yml
+ansible/inventories/production/hosts.github-actions.yml
+```
+
+The encrypted production secret source is committed as:
+
+```txt
+ansible/inventories/production/group_vars/all/vault.sops.yml
+```
+
+Ansible loads the encrypted file directly with the `community.sops.sops` vars plugin. Any local decrypted copy is runtime-only and ignored by git:
+
+```txt
+ansible/inventories/production/group_vars/all/vault.yml
 ```
 
 The local Vagrant inventory under `ansible/inventories/local-vagrant/` is committed because it contains only loopback ports, generated SSH config paths, and test defaults.
@@ -83,71 +93,100 @@ home_stack_source_mode: mounted
 
 Mounted mode assumes `/opt/home-stack` is already mounted or otherwise present on the VM.
 
-## Fresh VPS Flow
+## Production Secret Setup
 
-Copy the examples, fill real values locally, and keep them untracked:
+Prerequisites: `age` and `sops` installed locally (both are already in the GitHub Actions workflow via setup actions).
+
+### 1. Generate an age key pair and configure SOPS
 
 ```sh
-cp ansible/inventories/production/hosts.yml.example ansible/inventories/production/hosts.yml
-cp ansible/inventories/production/group_vars/all.yml.example ansible/inventories/production/group_vars/all.yml
+task sops:keygen
 ```
 
-Run bootstrap once through OVH's default `debian` user with sudo:
+This writes `~/.config/sops/age/keys.txt` (the standard SOPS default location) and `.sops.yaml` (configured with your public key as the age recipient). The private key is also the value for the `SOPS_AGE_KEY` GitHub secret.
+
+### 2. Create and encrypt the vault file
 
 ```sh
-uv run ansible-galaxy collection install -r ansible/requirements.yml
-uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/playbooks/bootstrap.yml --become
+cp ansible/inventories/production/group_vars/all/vault.sops.yml.example \
+   ansible/inventories/production/group_vars/all/vault.sops.yml
 ```
 
-Run host convergence as the debian user:
+Edit `vault.sops.yml` with your real values, then encrypt:
 
 ```sh
-uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/playbooks/site.yml
+task sops:encrypt
 ```
 
-Run app deployment as the deploy user:
+Commit `.sops.yaml` and `vault.sops.yml` (both are safe to commit once encrypted).
+
+### 3. Set the GitHub secret
+
+The private key from `~/.config/sops/age/keys.txt` becomes the `SOPS_AGE_KEY` GitHub Environment secret:
 
 ```sh
-uv run ansible-playbook -i ansible/inventories/production/hosts.yml ansible/playbooks/deploy.yml
+grep -v '#' ~/.config/sops/age/keys.txt
+```
+
+Paste that into **GitHub > Settings > Environments > production > Secrets > SOPS_AGE_KEY**.
+
+### Ongoing vault management
+
+```sh
+task sops:edit              # Decrypt, open in $EDITOR, re-encrypt on save
+task sops:view              # Decrypt and print the full vault to stdout
+task sops:get -- home_stack_domain   # Print a single vault value
 ```
 
 ## GitHub Actions
 
-Bootstrap is local-only and should be run once from your workstation to create the VM baseline, users, and SSH access.
+Production runs through `.github/workflows/deploy.yml` on pushes to `main` and `workflow_dispatch`. The workflow runs `ansible/playbooks/site.yml` first to converge the host baseline, then `ansible/playbooks/deploy.yml` to deploy the stack. Use a protected `production` environment for this workflow.
 
-Routine production runs use `.github/workflows/deploy.yml` on pushes to `main` and `workflow_dispatch`. The workflow runs `ansible/playbooks/site.yml` first to converge the host baseline, then `ansible/playbooks/deploy.yml` to deploy the stack. Use a protected `production` environment for this workflow.
+Run the workflow once against a fresh VPS to create the baseline users, Docker/UFW/fail2ban/SSH hardening, and deployment wrapper. Subsequent runs converge the host and deploy the requested commit.
 
-Required GitHub Environment variables include:
-
-```txt
-PROD_VPS_HOST
-PROD_VPS_SSH_PORT
-PROD_ADMIN_USER
-PROD_DEPLOY_USER
-PROD_GIT_REPO
-PROD_DOMAIN
-PROD_ACME_EMAIL
-PROD_ADMIN_CIDRS
-PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES
-PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES
-PROD_WEB_EXPOSURE
-```
-
-`PROD_ADMIN_CIDRS` is used by provisioning for SSH/firewall admin access and is also the default Keycloak admin client-IP allowlist during deploy. Set `PROD_KEYCLOAK_ADMIN_CLIENT_IP_RANGES` only when Keycloak admin access should use a different client CIDR list. Set `PROD_KEYCLOAK_ADMIN_REMOTE_IP_RANGES` to trusted edge proxy CIDRs, such as Cloudflare, when the origin is proxied.
-
-Required GitHub Environment secrets include:
+Required GitHub Environment variables are intentionally minimal:
 
 ```txt
-PROD_SSH_PRIVATE_KEY
-PROD_KNOWN_HOSTS
-PROD_KEYCLOAK_ADMIN_PASSWORD
-PROD_KEYCLOAK_DB_PASSWORD
-PROD_OAUTH2_PROXY_CLIENT_SECRET
-PROD_OAUTH2_PROXY_COOKIE_SECRET
-PROD_TASKS_DB_PASSWORD
+VPS_HOST
+GIT_REPO
 ```
 
-Ansible Vault can replace the GitHub-secret rendered app vars later. The roles are written around `home_stack_*` variables, so the secret source can change without rewriting the deployment logic.
+Required GitHub Environment secrets are:
+
+```txt
+SSH_PRIVATE_KEY
+KNOWN_HOSTS
+SOPS_AGE_KEY
+```
+
+The workflow uses the committed `ansible/inventories/production/hosts.github-actions.yml` inventory. It reads `VPS_HOST`, `GIT_REPO`, and `GITHUB_SHA` from the workflow environment, loads the SSH private key into `ssh-agent` from the `SSH_PRIVATE_KEY` secret, installs age and SOPS, and passes `SOPS_AGE_KEY` to Ansible as `ANSIBLE_SOPS_AGE_KEY` so the `community.sops.sops` vars plugin can load `vault.sops.yml` directly. `vault.sops.yml` should contain private site-specific values and app secrets:
+
+```yaml
+home_stack_admin_cidrs:
+  - YOUR.PUBLIC.IP/32
+home_stack_domain: example.com
+home_stack_acme_email: admin@example.com
+home_stack_keycloak_admin_password: ...
+home_stack_keycloak_db_password: ...
+home_stack_oauth2_proxy_client_secret: ...
+home_stack_oauth2_proxy_cookie_secret: ...
+home_stack_tasks_db_password: ...
+```
+
+Optional overrides can also live in `vault.sops.yml` when needed:
+
+```txt
+ansible_port
+home_stack_ssh_port
+home_stack_admin_user
+home_stack_deploy_user
+home_stack_firewall_web_exposure
+home_stack_keycloak_admin_client_ip_ranges
+```
+
+Production defaults to `home_stack_firewall_web_exposure: cloudflare`; `site.yml` and `deploy.yml` fetch Cloudflare edge CIDRs from Cloudflare's official `ips-v4` and `ips-v6` endpoints when Cloudflare exposure is enabled. Leave `home_stack_cloudflare_cidrs`, `home_stack_caddy_trusted_proxies`, and `home_stack_keycloak_admin_remote_ip_ranges` unset for the normal Cloudflare-proxied production path.
+
+Commit `.sops.yaml` and `vault.sops.yml`. The private key at `~/.config/sops/age/keys.txt` must not be committed; add its contents to the GitHub Environment secret `SOPS_AGE_KEY`.
 
 ## Local Debian 13 Vagrant VM
 

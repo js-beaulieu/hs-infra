@@ -1,0 +1,10 @@
+---
+home_stack:
+  hosts:
+    production-vps:
+      ansible_host: "{{ lookup('env', 'VPS_HOST') }}"
+  vars:
+    home_stack_source_mode: git
+    home_stack_git_repo: "{{ lookup('env', 'GIT_REPO') }}"
+    home_stack_git_version: "{{ lookup('env', 'GITHUB_SHA') }}"
+    home_stack_hide_secrets: true

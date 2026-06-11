@@ -2,9 +2,9 @@
 - name: Converge Debian VPS host baseline
   hosts: home_stack
   gather_facts: true
-  remote_user: '{{ home_stack_admin_user }}'
+  remote_user: '{{ home_stack_admin_user | default("debian") }}'
   become: true
-  roles: [base, docker, firewall, fail2ban, sshd]
+  roles: [base, docker, cloudflare, firewall, fail2ban, sshd]
   tasks:
     - name: Prepare stack deployment entrypoint
       ansible.builtin.import_role:

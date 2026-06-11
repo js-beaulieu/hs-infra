@@ -2,8 +2,11 @@
 - name: Deploy home-stack application
   hosts: home_stack
   gather_facts: true
-  remote_user: '{{ home_stack_deploy_user }}'
+  remote_user: '{{ home_stack_deploy_user | default("deploy") }}'
   tasks:
+    - name: Resolve Cloudflare edge ranges
+      ansible.builtin.import_role:
+        name: cloudflare
     - name: Deploy stack
       ansible.builtin.import_role:
         name: stack

@@ -1,0 +1,12 @@
+---
+home_stack_firewall_web_exposure: cloudflare
+home_stack_cloudflare_cidrs: []
+home_stack_caddy_trusted_proxies: []
+home_stack_keycloak_admin_remote_ip_ranges: []
+home_stack_cloudflare_fetch_cidrs: >-
+  {{
+    home_stack_firewall_web_exposure == 'cloudflare' and
+    (home_stack_cloudflare_cidrs | default([]) | length == 0)
+  }}
+home_stack_cloudflare_ips_v4_url: https://www.cloudflare.com/ips-v4
+home_stack_cloudflare_ips_v6_url: https://www.cloudflare.com/ips-v6

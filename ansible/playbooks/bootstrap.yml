@@ -2,5 +2,5 @@
 - name: Bootstrap fresh Debian VPS access
   hosts: home_stack
   gather_facts: false
-  remote_user: '{{ home_stack_admin_user }}'
+  remote_user: '{{ home_stack_admin_user | default("debian") }}'
   roles: [bootstrap]

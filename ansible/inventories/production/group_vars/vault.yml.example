@@ -1,8 +1,0 @@
----
-# Copy to vault.yml and encrypt with ansible-vault when real secrets are added.
-# This file intentionally contains no real secrets.
-vault_home_stack_keycloak_admin_password: replace-with-real-secret
-vault_home_stack_keycloak_db_password: replace-with-real-secret
-vault_home_stack_oauth2_proxy_client_secret: replace-with-real-secret
-vault_home_stack_oauth2_proxy_cookie_secret: replace-with-real-secret
-vault_home_stack_tasks_db_password: replace-with-real-secret

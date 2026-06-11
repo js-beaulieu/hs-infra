@@ -15,10 +15,15 @@
 task start          # docker compose up -d --build
 task stop           # docker compose down
 task test           # run Python Playwright/httpx flow tests in Testcontainers
-task lint           # validate compose, caddy, oauth2-proxy, agentgateway, shellcheck
+task lint           # validate compose, caddy, oauth2-proxy, agentgateway, github-actions, sh
 task format         # ruff, yamlfix, and mdformat checks
 task format:write   # run ruff, yamlfix, and mdformat in-place
 task ci             # run test, lint, format in parallel
+task sops:keygen    # generate age key pair, write .sops.yaml with recipient
+task sops:edit      # decrypt, open vault in $EDITOR, re-encrypt on save
+task sops:view      # decrypt and print the full vault to stdout
+task sops:get -- KEY # print a single vault value
+task sops:encrypt   # encrypt vault.sops.yml in place
 ```
 
 - `task test` always starts an isolated Testcontainers Compose project; no pre-existing local stack is used.
@@ -49,6 +54,7 @@ task ci             # run test, lint, format in parallel
 - MCP Dynamic Client Registration is intentionally enabled for connector onboarding. Do not tighten or remove DCR without explicit user direction; document and test the current allowlist behavior instead.
 - Production bootstrap is local-only and one-time from the user's workstation. GitHub Actions deploys run `site.yml` then `deploy.yml` on `main`.
 - Local Vagrant inventory is `ansible/inventories/local-vagrant/`; do not reintroduce the old `local-vm` inventory path.
+- yamlfix must exclude `**/*.sops.yml` and `.sops.yaml` — the Taskfile handles this, but manual yamlfix runs that skip these excludes will corrupt encrypted SOPS files.
 
 ## Style
 

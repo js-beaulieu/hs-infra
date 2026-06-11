@@ -29,7 +29,7 @@ Vagrant.configure("2") do |config|
                             ".vault-pass",
                             "ansible/inventories/production/hosts.yml",
                             "ansible/inventories/production/group_vars/all.yml",
-                            "ansible/inventories/production/group_vars/vault.yml",
+                            "ansible/inventories/production/group_vars/all/vault.yml",
                             "tests/flows/*.env",
                             "tests/flows/.generated-users.json",
                             "tests/flows/.generated-tokens.json",
