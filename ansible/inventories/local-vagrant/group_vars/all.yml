@@ -20,8 +20,10 @@ home_stack_public_auth_origin: "https://auth.{{ home_stack_domain }}:{{ home_sta
   \ }}"
 home_stack_public_web_origin: "https://tasks.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
   \ }}"
-home_stack_public_api_origin: "https://api.tasks.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
+home_stack_public_oauth2_origin: "https://api.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
   \ }}"
+home_stack_public_api_origin: "https://api.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
+  \ }}/tasks"
 home_stack_mcp_resource_uri: "{{ home_stack_public_api_origin }}/mcp"
 home_stack_caddy_tls_directive: "tls /certs/local.pem /certs/local-key.pem"
 home_stack_caddy_trusted_proxies: [127.0.0.1/32, "::1/128"]

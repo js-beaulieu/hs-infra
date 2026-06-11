@@ -66,7 +66,7 @@
 		@unauthorized status 401
 		handle_response @unauthorized {
 			route {
-				header Location "/oauth2/start?rd={$PUBLIC_WEB_ORIGIN}{uri}"
+				header Location "{$PUBLIC_OAUTH2_ORIGIN}/oauth2/start?rd={$PUBLIC_WEB_ORIGIN}{uri}"
 				respond "" 302
 			}
 		}

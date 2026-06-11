@@ -5,18 +5,18 @@
 The intended MCP resource URI is:
 
 ```txt
-https://api.tasks.${DOMAIN}/mcp
+https://api.${DOMAIN}/tasks/mcp
 ```
 
 The protected-resource metadata route is:
 
 ```txt
-https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
+https://api.${DOMAIN}/tasks/.well-known/oauth-protected-resource/mcp
 ```
 
-MCP access tokens must include audience `https://api.tasks.${DOMAIN}/mcp` and group `/mcp-users`. Dynamically registered MCP clients should request the `mcp` scope, which carries the required audience and groups mapper.
+MCP access tokens must include audience `https://api.${DOMAIN}/tasks/mcp` and group `/mcp-users`. Dynamically registered MCP clients should request the `mcp` scope, which carries the required audience and groups mapper.
 
-The external `/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint at `/api/mcp`. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required.
+The external `/tasks/mcp` route is handled by agentgateway and proxied to the real `tasks-api` Streamable HTTP MCP endpoint. The agentgateway config is rendered from `agentgateway/config.yaml.tmpl` via the `agentgateway-bootstrap` service, so issuer, JWKS, and resource metadata stay environment-driven and no host-side script is required.
 
 Validate full MCP initialize/session behavior with Claude, ChatGPT custom MCPs, or an MCP inspector.
 
@@ -35,10 +35,6 @@ Context:
 ## Dynamic Client Registration
 
 DCR is enabled for MCP onboarding with scopes limited to `openid`, `profile`, `email`, and `mcp`, and trusted redirect/client hosts seeded for Claude and ChatGPT. Treat that as a first-pass allowlist: tighten it further after testing the real hosted connector flows.
-
-## Backwards Compatibility
-
-The old paths on `https://tasks.${DOMAIN}/api/mcp` and metadata at `https://tasks.${DOMAIN}/.well-known/oauth-protected-resource/api/mcp` are still routed for transition, but tokens must use the new canonical audience `https://api.tasks.${DOMAIN}/mcp`. Existing clients with tokens audience-bound to the old resource URI must be updated.
 
 ## Pattern For Future MCP Resources
 

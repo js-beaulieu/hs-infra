@@ -36,8 +36,10 @@ case "$OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS" in
 esac
 
 PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN:-https://tasks.$DOMAIN}
-PUBLIC_API_ORIGIN=${PUBLIC_API_ORIGIN:-https://api.tasks.$DOMAIN}
+PUBLIC_OAUTH2_ORIGIN=${PUBLIC_OAUTH2_ORIGIN:-https://api.$DOMAIN}
+PUBLIC_API_ORIGIN=${PUBLIC_API_ORIGIN:-https://api.$DOMAIN/tasks}
 require_json_string_safe PUBLIC_WEB_ORIGIN "$PUBLIC_WEB_ORIGIN"
+require_json_string_safe PUBLIC_OAUTH2_ORIGIN "$PUBLIC_OAUTH2_ORIGIN"
 require_json_string_safe PUBLIC_API_ORIGIN "$PUBLIC_API_ORIGIN"
 
 if ! "$KC" config credentials --server "$SERVER" --realm master --user "$KEYCLOAK_ADMIN_USERNAME" --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null 2>&1; then
@@ -129,8 +131,8 @@ cat >/tmp/oauth2-proxy-client.json <<JSON
   "directAccessGrantsEnabled": false,
   "implicitFlowEnabled": false,
   "secret": "$OAUTH2_PROXY_CLIENT_SECRET",
-  "redirectUris": ["$PUBLIC_WEB_ORIGIN/oauth2/callback", "$PUBLIC_API_ORIGIN/oauth2/callback"],
-  "webOrigins": ["$PUBLIC_WEB_ORIGIN", "$PUBLIC_API_ORIGIN"],
+  "redirectUris": ["$PUBLIC_OAUTH2_ORIGIN/oauth2/callback"],
+  "webOrigins": ["$PUBLIC_WEB_ORIGIN", "$PUBLIC_OAUTH2_ORIGIN", "$PUBLIC_API_ORIGIN"],
   "attributes": {
     "pkce.code.challenge.method": "S256",
     "access.token.lifespan": "$OAUTH2_PROXY_ACCESS_TOKEN_LIFESPAN_SECONDS"
@@ -224,7 +226,7 @@ TRUSTED_HOSTS_CID=$("$KC" get components -r "$REALM" --fields id,providerId,subT
 if [ -n "$TRUSTED_HOSTS_CID" ]; then
   "$KC" update components/$TRUSTED_HOSTS_CID -r "$REALM" \
     -s 'config.host-sending-registration-request-must-match=["false"]' \
-    -s "config.trusted-hosts=[\"auth.$DOMAIN\",\"api.tasks.$DOMAIN\",\"claude.ai\",\"chatgpt.com\",\"chat.openai.com\",\"localhost\",\"127.0.0.1\"]" \
+    -s "config.trusted-hosts=[\"auth.$DOMAIN\",\"api.$DOMAIN\",\"claude.ai\",\"chatgpt.com\",\"chat.openai.com\",\"localhost\",\"127.0.0.1\"]" \
     -s 'config.client-uris-must-match=["true"]'
 fi
 

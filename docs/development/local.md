@@ -19,11 +19,11 @@ openssl rand -base64 32 | tr '+/' '-_'
 
 ## Local HTTPS
 
-Use mkcert for local TLS so browsers, oauth2-proxy, and agentgateway can trust the same local CA. Local domains use `*.home-stack.localhost`, so `auth.home-stack.localhost` and `tasks.home-stack.localhost` resolve to loopback without editing `/etc/hosts`.
+Use mkcert for local TLS so browsers, oauth2-proxy, and agentgateway can trust the same local CA. Local domains use `*.home-stack.localhost`, so `auth.home-stack.localhost`, `api.home-stack.localhost`, and `tasks.home-stack.localhost` resolve to loopback without editing `/etc/hosts`.
 
 ```sh
 mkcert -install
-mkcert -cert-file certs/local.pem -key-file certs/local-key.pem auth.home-stack.localhost tasks.home-stack.localhost api.tasks.home-stack.localhost
+mkcert -cert-file certs/local.pem -key-file certs/local-key.pem auth.home-stack.localhost api.home-stack.localhost tasks.home-stack.localhost
 cp "$(mkcert -CAROOT)/rootCA.pem" certs/rootCA.pem
 ```
 
@@ -48,14 +48,11 @@ task start
 Initial checks:
 
 ```sh
-curl -i https://api.tasks.${DOMAIN}/health
-curl -i https://api.tasks.${DOMAIN}/
-curl -i https://api.tasks.${DOMAIN}/users/me
-curl -i https://api.tasks.${DOMAIN}/mcp
-curl -i https://api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp
-curl -i https://tasks.${DOMAIN}/api/health
-curl -i https://tasks.${DOMAIN}/api/mcp
-curl -i https://tasks.${DOMAIN}/.well-known/oauth-protected-resource/api/mcp
+curl -i https://api.${DOMAIN}/tasks/health
+curl -i https://api.${DOMAIN}/tasks
+curl -i https://api.${DOMAIN}/tasks/users/me
+curl -i https://api.${DOMAIN}/tasks/mcp
+curl -i https://api.${DOMAIN}/tasks/.well-known/oauth-protected-resource/mcp
 ```
 
 ## Local VM

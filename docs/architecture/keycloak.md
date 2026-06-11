@@ -6,7 +6,7 @@
 
 - Realm `home-stack`.
 - Groups `/homelab-users`, `/tasks-users`, `/mcp-users`, and `/mcp-writers`.
-- Confidential client `oauth2-proxy-tasks` with redirect URIs `https://api.tasks.${DOMAIN}/oauth2/callback` and temporary compatibility URI `https://tasks.${DOMAIN}/oauth2/callback`.
+- Confidential client `oauth2-proxy-tasks` with redirect URI `https://api.${DOMAIN}/oauth2/callback`.
 - Public client `tasks-mcp` for initial local MCP testing.
 - `mcp` client scope carrying the MCP audience and group claim for dynamically registered MCP clients.
 - Group claim mappers and audience mappers.

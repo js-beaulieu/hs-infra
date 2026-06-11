@@ -5,10 +5,10 @@
 For production, leave `CADDY_TLS_DIRECTIVE` empty and point DNS:
 
 - `auth.${DOMAIN}` -> VPS/Caddy
-- `api.tasks.${DOMAIN}` -> VPS/Caddy
+- `api.${DOMAIN}` -> VPS/Caddy
 - `tasks.${DOMAIN}` -> CDN/static host
 
-Caddy will use ACME/Let's Encrypt for the API host.
+Caddy will use ACME/Let's Encrypt for the first-level API host.
 
 Production deploys default to Cloudflare origin protection. When `home_stack_firewall_web_exposure: cloudflare`, Ansible fetches Cloudflare edge CIDRs from Cloudflare's official `ips-v4` and `ips-v6` endpoints during `site.yml` and `deploy.yml`, then uses those ranges for the host firewall, Caddy trusted proxies, and Keycloak admin remote-IP checks.
 

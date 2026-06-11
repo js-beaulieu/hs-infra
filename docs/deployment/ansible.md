@@ -220,7 +220,7 @@ The default VM uses Vagrant forwarded ports:
 The local inventory uses `*.home-stack.localhost`, local certs from `certs/`, and test-only default credentials. The health endpoint is reachable from the host with certificate verification disabled:
 
 ```sh
-curl -k https://api.tasks.home-stack.localhost:8443/health
+curl -k https://api.home-stack.localhost:8443/tasks/health
 ```
 
 Stop or remove the VM with:

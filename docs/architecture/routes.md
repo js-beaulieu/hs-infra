@@ -2,30 +2,25 @@
 
 ## Route Precedence
 
-`api.tasks.${DOMAIN}` is routed in this order:
+`api.${DOMAIN}` routes each app under its own path prefix. The Tasks API lives at `/tasks` and is routed in this order:
 
-1. `/oauth2/*` goes directly to oauth2-proxy (callback).
-1. MCP OAuth metadata exact paths go to agentgateway.
-1. Exact `GET`/`HEAD /health` goes to `tasks-api` `/health` without auth.
-1. Exact `/mcp` and `/mcp/*` go to agentgateway and must not browser-redirect.
-1. `/` and `/*` use oauth2-proxy auth checks and return `401/403`, not login redirects.
+1. `/oauth2/*` goes directly to the shared oauth2-proxy (start, callback, auth, userinfo, sign-out).
+1. MCP OAuth metadata exact paths under `/tasks/.well-known/*/mcp` go to agentgateway.
+1. Exact `GET`/`HEAD /tasks/health` strips `/tasks` and goes to `tasks-api` `/health` without auth.
+1. Exact `/tasks/mcp` and `/tasks/mcp/*` go to agentgateway and must not browser-redirect.
+1. `/tasks` and `/tasks/*` use oauth2-proxy auth checks, strip `/tasks`, and return `401/403`, not login redirects.
 1. Unsafe methods require `Origin: https://tasks.${DOMAIN}` or same-origin `Referer`.
 1. `OPTIONS` preflight is handled before auth with CORS for `https://tasks.${DOMAIN}`.
 
 `tasks.${DOMAIN}` is routed in this order:
 
-1. `/oauth2/*` goes directly to oauth2-proxy.
-1. MCP OAuth metadata exact paths go to agentgateway (backwards-compatible).
-1. Exact `GET`/`HEAD /api/health` strips `/api` and goes to `tasks-api` `/health` without auth.
-1. Exact `/api/mcp` and `/api/mcp/*` go to agentgateway.
-1. Exact `/api` and `/api/*` use oauth2-proxy auth checks, strip `/api`, and return `401/403`.
-1. `/` uses oauth2-proxy auth checks and sends unauthenticated browsers to `/oauth2/start`.
+1. `/` uses oauth2-proxy auth checks and sends unauthenticated browsers to `https://api.${DOMAIN}/oauth2/start?rd=https://tasks.${DOMAIN}/...`.
 
-Do not use `/mcp*` or `/api/mcp*`. Use exact and prefix matches only.
+Do not use wildcard-looking matches such as `/tasks/mcp*`. Use exact and prefix matches only.
 
 `auth.${DOMAIN}` only proxies the intended `home-stack` realm public endpoints. The Keycloak `master` realm and arbitrary additional realms are not public through Caddy.
 
-`tasks.${DOMAIN}` is the frontend host or local placeholder. In production, the API routes on `tasks.${DOMAIN}` are backwards-compatible; the canonical API host is `api.tasks.${DOMAIN}`.
+`tasks.${DOMAIN}` is the frontend host or local placeholder. In production, API routes are on `api.${DOMAIN}/{app}` so Cloudflare's standard edge certificate only needs first-level subdomains.
 
 ## Trusted Headers
 
@@ -39,13 +34,13 @@ Private APIs may read these headers only because public routes strip inbound spo
 
 `tasks-api` consumes `X-User-ID`, `X-User-Name`, and `X-User-Email`. Caddy maps oauth2-proxy's trusted subject/user header into `X-User-ID` and keeps email separate as `X-User-Email`; do not set `user_id_claim` unless this is revalidated against the current oauth2-proxy behavior.
 
-Use `GET https://api.tasks.${DOMAIN}/users/me` for initial verification. The old `GET https://tasks.${DOMAIN}/api/users/me` path is kept only as a temporary compatibility route.
+Use `GET https://api.${DOMAIN}/tasks/users/me` for initial verification.
 
 ## Browser API CSRF
 
-Unsafe browser API methods on `api.tasks.${DOMAIN}` require `Origin: https://tasks.${DOMAIN}` or a strict same-frontend `Referer` before proxying to `tasks-api`. API responses and preflights use credentialed CORS for that exact frontend origin only.
+Unsafe browser API methods on `api.${DOMAIN}/tasks` require `Origin: https://tasks.${DOMAIN}` or a strict same-frontend `Referer` before proxying to `tasks-api`. API responses and preflights use credentialed CORS for that exact frontend origin only.
 
-MCP is separate and uses bearer auth on `/mcp`; do not weaken browser cookie CSRF checks to support future external API clients.
+MCP is separate and uses bearer auth on `/tasks/mcp`; do not weaken browser cookie CSRF checks to support future external API clients.
 
 Future external API clients should get explicit bearer-auth routes, separate hosts, or separate gateway policies.
 
@@ -61,6 +56,6 @@ For each new app:
 - Attach Caddy and only the app-specific private services to that network.
 - Add app-specific route precedence to `caddy/<app>.caddy`.
 - Add a Keycloak group such as `/newapp-users` and enforce it at the gateway, not inside the API.
-- Register callback URIs or create a per-app oauth2-proxy client if shared callback handling becomes ambiguous.
+- Add the app route under `api.${DOMAIN}/{app}` and keep OAuth browser login on the shared `api.${DOMAIN}/oauth2/*` route unless there is a concrete need for per-app oauth2-proxy instances.
 
 Future service-to-service calls should go through an internal gateway that verifies signed JWTs, strips spoofable identity headers, and injects the same trusted header contract. APIs should continue consuming trusted headers and should not each grow custom JWT verification logic.

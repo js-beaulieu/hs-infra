@@ -11,7 +11,8 @@ home_stack_domain: ''
 home_stack_acme_email: ''
 home_stack_public_auth_origin: https://auth.{{ home_stack_domain }}
 home_stack_public_web_origin: https://tasks.{{ home_stack_domain }}
-home_stack_public_api_origin: https://api.tasks.{{ home_stack_domain }}
+home_stack_public_oauth2_origin: https://api.{{ home_stack_domain }}
+home_stack_public_api_origin: https://api.{{ home_stack_domain }}/tasks
 home_stack_mcp_resource_uri: '{{ home_stack_public_api_origin }}/mcp'
 home_stack_caddy_tls_directive: ''
 home_stack_caddy_http_port: 80

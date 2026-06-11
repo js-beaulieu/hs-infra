@@ -115,7 +115,7 @@ tasks:
     cmds:
       - |
         for _ in $(seq 1 60); do
-          if curl -kfsS https://api.tasks.home-stack.localhost:{{.VM_HTTPS_PORT}}/health; then
+          if curl -kfsS https://api.home-stack.localhost:{{.VM_HTTPS_PORT}}/tasks/health; then
             exit 0
           fi
           sleep 2
@@ -191,6 +191,7 @@ tasks:
           -e CADDY_TRUSTED_PROXIES="127.0.0.1/32" \
           -e DOMAIN=localhost \
           -e PUBLIC_WEB_ORIGIN=https://tasks.localhost \
+          -e PUBLIC_OAUTH2_ORIGIN=https://api.localhost \
           -e KEYCLOAK_ADMIN_REMOTE_IP_RANGES="private_ranges" \
           -e KEYCLOAK_ADMIN_CLIENT_IP_RANGES="private_ranges" \
           caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
@@ -222,7 +223,7 @@ tasks:
         sed \
           -e 's|\${AGENTGATEWAY_ISSUER}|https://auth.test.local/realms/home-stack|g' \
           -e 's|\${AGENTGATEWAY_JWKS_URL}|https://auth.test.local/realms/home-stack/protocol/openid-connect/certs|g' \
-          -e 's|\${MCP_RESOURCE_URI}|https://api.tasks.test.local/mcp|g' \
+          -e 's|\${MCP_RESOURCE_URI}|https://api.test.local/tasks/mcp|g' \
           -e 's|url: "https://auth.test.local/realms/home-stack/protocol/openid-connect/certs"|file: "/etc/agentgateway/jwks.json"|g' \
           agentgateway/config.yaml.tmpl > "$tmpdir/config.yaml"
         chmod 644 "$tmpdir/jwks.json" "$tmpdir/config.yaml"

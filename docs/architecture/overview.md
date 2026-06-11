@@ -7,7 +7,7 @@
 - `postgres`: shared private database for Keycloak and tasks-api.
 - `oauth2-proxy`: browser SSO/session checks for app hosts and API hosts sharing a parent-domain session cookie.
 - `redis`: private oauth2-proxy session store.
-- `agentgateway`: MCP OAuth/resource gateway for `/mcp` on `api.tasks.${DOMAIN}`.
+- `agentgateway`: MCP OAuth/resource gateway for `/tasks/mcp` on `api.${DOMAIN}`.
 - `tasks-api`: private placeholder API on the `tasks-api` network.
 - `tasks-web`: private static placeholder for browser `/` on a separate frontend network.
 - `postgres-bootstrap`: idempotently creates databases, users, and grants for every service that needs Postgres, on every start.

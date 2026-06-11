@@ -5,8 +5,8 @@
 Move the first app to this public URL shape:
 
 - `https://tasks.${DOMAIN}`: frontend/static app, eligible for CDN/object hosting.
-- `https://api.tasks.${DOMAIN}`: Caddy/API gateway on the VPS.
-- `https://api.tasks.${DOMAIN}/mcp`: MCP endpoint through agentgateway.
+- `https://api.${DOMAIN}/tasks`: Caddy/API gateway route on the VPS.
+- `https://api.${DOMAIN}/tasks/mcp`: MCP endpoint through agentgateway.
 - `https://auth.${DOMAIN}`: Keycloak issuer host.
 
 This lets DNS point the frontend host at a CDN while the API host still points at the VPS. MCP remains part of the app API instead of becoming a separate `mcp.tasks.${DOMAIN}` resource host.
@@ -65,7 +65,7 @@ MCP flow:
 - Invalid, tampered, wrong-audience, expired, or missing-group token is rejected.
 - Valid MCP token with the configured audience and `/mcp-users` is accepted.
 - MCP bearer token is passed only to agentgateway and is not forwarded to `tasks-api`.
-- Route boundary is exact: old `/api/mcpfoo` or new `/mcpfoo` does not match the MCP route.
+- Route boundary is exact: `/tasks/mcpfoo` does not match the MCP route.
 
 ## Implementation Phases
 
@@ -88,17 +88,17 @@ MCP flow:
 Update `docker/caddy/Caddyfile`.
 
 - Keep `auth.{$DOMAIN}` behavior unchanged unless required for callback/DCR compatibility.
-- Add `api.tasks.{$DOMAIN}` as the public API site.
-- Move `/oauth2/*` handling from `tasks.{$DOMAIN}` to `api.tasks.{$DOMAIN}`.
-- Move public health from `/api/health` to `/health`.
-- Move MCP from `/api/mcp` and `/api/mcp/*` to `/mcp` and `/mcp/*`.
-- Move MCP protected-resource metadata from `/.well-known/oauth-protected-resource/api/mcp` to `/.well-known/oauth-protected-resource/mcp`.
+- Add `api.{$DOMAIN}` as the public API site.
+- Move `/oauth2/*` handling from `tasks.{$DOMAIN}` to shared `api.{$DOMAIN}/oauth2/*`.
+- Move public health from `/api/health` to `/tasks/health`.
+- Move MCP from `/api/mcp` and `/api/mcp/*` to `/tasks/mcp` and `/tasks/mcp/*`.
+- Move MCP protected-resource metadata from `/.well-known/oauth-protected-resource/api/mcp` to `/tasks/.well-known/oauth-protected-resource/mcp`.
 - Keep agentgateway authorization-server proxy routes only if we deliberately keep agentgateway AS-proxy/DCR compatibility.
-- Remove `uri strip_prefix /api` from normal API routes.
+- Strip `/tasks` before proxying normal API routes to `tasks-api`.
 - Add strict CORS on browser API responses for `Origin: https://tasks.{$DOMAIN}`.
 - Add `OPTIONS` preflight handling before oauth2-proxy auth for allowed browser API routes.
 - Keep unsafe-method CSRF checks before proxying to `tasks-api`.
-- Keep `/mcp` and MCP metadata routes before normal API catch-all.
+- Keep `/tasks/mcp` and MCP metadata routes before normal API catch-all.
 - Return `401` or `403` for unauthenticated API fetches, not browser redirects.
 - Strip spoofable identity headers on every public route.
 - Strip inbound `Authorization` on normal browser API routes.
@@ -111,8 +111,8 @@ If production DNS points `tasks.${DOMAIN}` to a CDN, Caddy should not be the aut
 Update `docker/oauth2-proxy/oauth2-proxy.cfg` only if needed.
 
 - Keep one oauth2-proxy instance.
-- Change cookie name from `__Host-oauth2_proxy` to `__Secure-oauth2_proxy` because `__Host-` cookies cannot share across subdomains. The frontend (`tasks.${DOMAIN}`) and API gateway (`api.tasks.${DOMAIN}`) must share the SSO session.
-- Add `cookie_domains = [".tasks.${DOMAIN}"]` so the browser sends the session cookie to both `tasks.${DOMAIN}` and `api.tasks.${DOMAIN}`.
+- Change cookie name from `__Host-oauth2_proxy` to `__Secure-oauth2_proxy` because `__Host-` cookies cannot share across subdomains. The frontend (`tasks.${DOMAIN}`) and API gateway (`api.${DOMAIN}`) must share the SSO session.
+- Add `cookie_domains = [".${DOMAIN}"]` so the browser sends the session cookie to both `tasks.${DOMAIN}` and `api.${DOMAIN}`.
 - Keep `cookie_secure = true` and `cookie_httponly = true`.
 - Keep `cookie_samesite = "lax"` unless testing proves the API-host login flow requires a different value.
 - Keep `set_xauthrequest = true`.
@@ -121,44 +121,43 @@ Update `docker/oauth2-proxy/oauth2-proxy.cfg` only if needed.
 
 Update `docker/compose.yml` oauth2-proxy environment:
 
-- `OAUTH2_PROXY_REDIRECT_URL=https://api.tasks.${DOMAIN}/oauth2/callback`.
+- `OAUTH2_PROXY_REDIRECT_URL=https://api.${DOMAIN}/oauth2/callback`.
 - `OAUTH2_PROXY_WHITELIST_DOMAINS` includes the frontend return host and API host as required by oauth2-proxy redirect validation.
 
 ### Phase 5: Keycloak Bootstrap
 
 Update `docker/keycloak/bootstrap.sh`.
 
-- Change the `oauth2-proxy-tasks` redirect URI to `https://api.tasks.$DOMAIN/oauth2/callback`.
-- Set browser client web origins to include `https://tasks.$DOMAIN` and `https://api.tasks.$DOMAIN` where Keycloak requires it.
+- Change the `oauth2-proxy-tasks` redirect URI to `https://api.$DOMAIN/oauth2/callback`.
+- Set browser client web origins to include `https://tasks.$DOMAIN` and `https://api.$DOMAIN` where Keycloak requires it.
 - Keep groups and group mappers unchanged.
 - Keep the MCP audience mapper driven by `$MCP_RESOURCE_URI`.
-- Review the `tasks-mcp` public client redirect URIs and web origins for `api.tasks.$DOMAIN`.
+- Review the `tasks-mcp` public client redirect URIs and web origins for `api.$DOMAIN`.
 - Do not enable anonymous DCR unless registration policies are explicitly configured.
 
 ### Phase 6: agentgateway
 
 Update `docker/agentgateway/config.yaml.tmpl`.
 
-- Change protected-resource metadata match to `/.well-known/oauth-protected-resource/mcp`.
-- Change MCP traffic matches to exact `/mcp` and prefix `/mcp/`.
+- Change protected-resource metadata match to `/tasks/.well-known/oauth-protected-resource/mcp`.
+- Change MCP traffic matches to exact `/tasks/mcp` and prefix `/tasks/mcp/`.
 - Set protected-resource metadata `resource` to `${MCP_RESOURCE_URI}`.
 - Keep issuer, JWKS, audience validation, `/mcp-users`, spoofed-header stripping, and trusted-header injection.
-- Keep backend target as `http://tasks-api:8080/api/mcp` if the upstream API image still exposes MCP there.
-- Change backend target to `http://tasks-api:8080/mcp` only if the upstream API actually exposes MCP at `/mcp`.
-- Treat `/.well-known/oauth-authorization-server/mcp` and `/.well-known/oauth-authorization-server/mcp/client-registration` as optional agentgateway AS-proxy/DCR compatibility routes, not RFC-required protected-resource metadata.
+- Keep backend target as `http://tasks-api:8080/mcp`.
+- Treat `/tasks/.well-known/oauth-authorization-server/mcp` and `/tasks/.well-known/oauth-authorization-server/mcp/client-registration` as optional agentgateway AS-proxy/DCR compatibility routes, not RFC-required protected-resource metadata.
 
 Update `docker-compose.yml` agentgateway/keycloak bootstrap environment:
 
-- `MCP_RESOURCE_URI=https://api.tasks.${DOMAIN}/mcp`.
+- `MCP_RESOURCE_URI=https://api.${DOMAIN}/tasks/mcp`.
 
 ### Phase 7: Environment And Local TLS
 
 Update `docker/.env.example`.
 
-- Add `api.tasks.home-stack.localhost` to the mkcert command.
+- Add `api.home-stack.localhost` to the mkcert command.
 - Document production DNS:
   - `auth.${DOMAIN}` points to the VPS/Caddy.
-  - `api.tasks.${DOMAIN}` points to the VPS/Caddy.
+  - `api.${DOMAIN}` points to the VPS/Caddy.
   - `tasks.${DOMAIN}` points to the CDN/static host.
 - Keep local docs clear that `tasks-web` is a local placeholder if the frontend is otherwise CDN-hosted.
 
@@ -166,9 +165,9 @@ Update `docker/.env.example`.
 
 Update `README.md` and `docs/planning/implementation-plan.md`.
 
-- Replace `tasks.${DOMAIN}/api` with `api.tasks.${DOMAIN}`.
-- Replace `tasks.${DOMAIN}/api/mcp` with `api.tasks.${DOMAIN}/mcp`.
-- Replace MCP metadata path with `api.tasks.${DOMAIN}/.well-known/oauth-protected-resource/mcp`.
+- Replace `tasks.${DOMAIN}/api` with `api.${DOMAIN}/tasks`.
+- Replace `tasks.${DOMAIN}/api/mcp` with `api.${DOMAIN}/tasks/mcp`.
+- Replace MCP metadata path with `api.${DOMAIN}/tasks/.well-known/oauth-protected-resource/mcp`.
 - Explain that CDN/static frontend hosting moves auth enforcement to API/data calls.
 - Document that frontend fetches must use credentials.
 - Document CORS and CSRF expectations.
@@ -177,7 +176,7 @@ Update `README.md` and `docs/planning/implementation-plan.md`.
 
 Update `docker/tasks-web/index.html` if it remains in the repo.
 
-- Change copy to say API is on `api.tasks.${DOMAIN}` and MCP is `/mcp`.
+- Change copy to say API is on `api.${DOMAIN}/tasks` and MCP is `/tasks/mcp`.
 - Keep it clearly positioned as a local placeholder if production frontend is CDN-hosted.
 
 ## Development Loop
@@ -202,14 +201,14 @@ Run this loop after Phase 2.
 1. The implementation loop runs the Testcontainers flow tests repeatedly until they pass.
 1. No test logic, assertions, status expectations, auth expectations, spoofing expectations, or security expectations are changed after the baseline is green without asking first.
 1. `tasks.${DOMAIN}` can be hosted by a CDN/static provider without proxying through the VPS for `/api` path routing.
-1. `api.tasks.${DOMAIN}` serves `/health`, normal API routes, `/mcp`, and MCP metadata through Caddy on the VPS.
-1. Browser API calls from `tasks.${DOMAIN}` to `api.tasks.${DOMAIN}` work only with strict allowed-origin CORS and credentials.
+1. `api.${DOMAIN}` serves `/tasks/health`, normal `/tasks` API routes, `/tasks/mcp`, and MCP metadata through Caddy on the VPS.
+1. Browser API calls from `tasks.${DOMAIN}` to `api.${DOMAIN}/tasks` work only with strict allowed-origin CORS and credentials.
 1. Untrusted origins do not receive permissive credentialed CORS.
 1. Unsafe browser API methods are protected by gateway-level CSRF origin checks.
 1. Unauthenticated API requests return `401` or `403`, not browser login redirects.
 1. MCP requests never receive oauth2-proxy browser redirects.
-1. MCP protected-resource metadata advertises `resource` exactly equal to `https://api.tasks.${DOMAIN}/mcp`.
-1. Keycloak MCP audience mapper and agentgateway audience validation both use `https://api.tasks.${DOMAIN}/mcp`.
+1. MCP protected-resource metadata advertises `resource` exactly equal to `https://api.${DOMAIN}/tasks/mcp`.
+1. Keycloak MCP audience mapper and agentgateway audience validation both use `https://api.${DOMAIN}/tasks/mcp`.
 1. Spoofed inbound identity headers are stripped before reaching backends.
 1. Browser API routes do not forward inbound `Authorization` headers.
 1. MCP bearer tokens are sent only to agentgateway and are not forwarded to `tasks-api`.

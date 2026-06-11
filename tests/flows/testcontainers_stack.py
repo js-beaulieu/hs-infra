@@ -130,7 +130,8 @@ def start_testcontainers_stack() -> None:
     https_port = get_free_port()
     http_port = get_free_port()
     web_origin = f"https://tasks.{domain}:{https_port}"
-    api_origin = f"https://api.tasks.{domain}:{https_port}"
+    oauth2_origin = f"https://api.{domain}:{https_port}"
+    api_origin = f"{oauth2_origin}/tasks"
     auth_origin = f"https://auth.{domain}:{https_port}"
     mcp_resource = f"{api_origin}/mcp"
     keycloak_admin_username = os.environ.get("KEYCLOAK_ADMIN_USERNAME", "admin")
@@ -144,6 +145,7 @@ def start_testcontainers_stack() -> None:
         "DOMAIN": domain,
         "PUBLIC_AUTH_ORIGIN": auth_origin,
         "PUBLIC_WEB_ORIGIN": web_origin,
+        "PUBLIC_OAUTH2_ORIGIN": oauth2_origin,
         "PUBLIC_API_ORIGIN": api_origin,
         "MCP_RESOURCE_URI": mcp_resource,
         "MCP_ACCESS_TOKEN_LIFESPAN_SECONDS": os.environ.get(
@@ -167,7 +169,7 @@ def start_testcontainers_stack() -> None:
         "OAUTH2_PROXY_CLIENT_SECRET": secrets.token_urlsafe(32),
         "OAUTH2_PROXY_COOKIE_SECRET": secrets.token_urlsafe(32),
         "OAUTH2_PROXY_PROVIDER_CA_FILES": "/certs/rootCA.pem",
-        "OAUTH2_PROXY_WHITELIST_DOMAINS": f"tasks.{domain}:{https_port},api.tasks.{domain}:{https_port}",
+        "OAUTH2_PROXY_WHITELIST_DOMAINS": f"tasks.{domain}:{https_port},api.{domain}:{https_port}",
         "AGENTGATEWAY_SSL_CERT_FILE": "/certs/rootCA.pem",
         "TASKS_DB_NAME": "tasks",
         "TASKS_DB_USER": "tasks",
@@ -201,7 +203,7 @@ def start_testcontainers_stack() -> None:
             "API_BASE": api_origin,
             "MCP_RESOURCE": mcp_resource,
             "MCP_METADATA": f"{api_origin}/.well-known/oauth-protected-resource/mcp",
-            "OAUTH2_BASE": f"{api_origin}/oauth2",
+            "OAUTH2_BASE": f"{oauth2_origin}/oauth2",
             "KEYCLOAK_ADMIN_USERNAME": keycloak_admin_username,
             "KEYCLOAK_ADMIN_PASSWORD": keycloak_admin_password,
             "KEYCLOAK_CONTAINER_NAME": f"{project_name}-keycloak-1",
