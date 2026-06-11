@@ -23,6 +23,12 @@ jobs:
       - name: Install project runtime dependencies
         run: uv sync --locked --no-dev
 
+      - name: Cache Ansible collections
+        uses: actions/cache@v5.0.5
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ runner.os }}-${{ hashFiles('ansible/requirements.yml') }}
+
       - name: Install Ansible collections
         run: uv run ansible-galaxy collection install -r ansible/requirements.yml
 
