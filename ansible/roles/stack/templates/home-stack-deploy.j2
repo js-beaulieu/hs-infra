@@ -1,8 +1,6 @@
 #!/bin/sh
 set -eu
 
-cd {{ home_stack_app_dir | quote }}
-
 {% if home_stack_source_mode == "git" %}
 release_version="$(/usr/bin/tr -d '\r\n' < {{ home_stack_release_file | quote }})"
 case "$release_version" in
@@ -12,26 +10,16 @@ case "$release_version" in
     ;;
 esac
 
-if [ ! -d .git ]; then
-  if [ -n "$(/usr/bin/find . -mindepth 1 -maxdepth 1 -print -quit)" ]; then
-    echo "{{ home_stack_app_dir }} must be empty or a Git checkout" >&2
-    exit 1
-  fi
-  /usr/bin/git clone {{ home_stack_git_repo | quote }} .
+if [ ! -d {{ home_stack_app_dir | quote }} ]; then
+  /usr/bin/git clone {{ home_stack_git_repo | quote }} {{ home_stack_app_dir | quote }}
 fi
 
-/usr/bin/git remote set-url origin {{ home_stack_git_repo | quote }}
+cd {{ home_stack_app_dir | quote }}
 /usr/bin/git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
-if /usr/bin/git rev-parse --verify --quiet "refs/remotes/origin/$release_version^{commit}" >/dev/null; then
-  checkout_target="refs/remotes/origin/$release_version"
-elif /usr/bin/git rev-parse --verify --quiet "$release_version^{commit}" >/dev/null; then
-  checkout_target="$release_version"
-else
-  echo "Release version not found in configured repository: $release_version" >&2
-  exit 1
-fi
-/usr/bin/git checkout --force --detach "$checkout_target"
+/usr/bin/git checkout --force --detach "$release_version"
 /usr/bin/git clean -fdx
+{% elif home_stack_source_mode == "local_copy" or home_stack_source_mode == "mounted" %}
+cd {{ home_stack_app_dir | quote }}
 {% endif %}
 
 set -a
