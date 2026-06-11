@@ -53,8 +53,6 @@
   no_log: '{{ home_stack_hide_secrets }}'
 - name: Run root-owned deployment wrapper
   ansible.builtin.command: sudo -n /usr/local/sbin/home-stack-deploy
-  args:
-    chdir: '{{ home_stack_app_dir }}'
   changed_when: true
 - name: Check public health endpoint
   ansible.builtin.uri:
