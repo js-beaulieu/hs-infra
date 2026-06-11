@@ -120,7 +120,9 @@ task sops:get -- home_stack_domain   # Print a single vault value
 
 ## GitHub Actions
 
-Production runs through `.github/workflows/deploy.yml` on pushes to `main` and `workflow_dispatch`. The workflow runs `site.yml` then `deploy.yml`, both as the deploy user. Use a protected `production` environment for this workflow.
+`.github/workflows/deploy.yml` runs on pushes to `main` and `workflow_dispatch`. It deploys the stack via `deploy.yml`. Use a protected `production` environment for this workflow.
+
+`.github/workflows/site.yml` is manual-only (`workflow_dispatch`). It runs `site.yml` to converge the host baseline — packages, Docker, UFW, fail2ban, SSH hardening. Run it once after bootstrap, then on-demand when you change infrastructure config.
 
 Run the workflow once against a fresh VPS to create the baseline user, Docker/UFW/fail2ban/SSH hardening, and deployment wrapper. Subsequent runs converge the host and deploy the requested commit.
 

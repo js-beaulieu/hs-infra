@@ -1,16 +1,14 @@
-name: Deploy
+name: Site
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 concurrency:
-  group: production-deploy
+  group: production-site
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  site:
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -50,9 +48,8 @@ jobs:
       - name: Trust known hosts
         run: ssh-keyscan -H "${{ vars.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy stack
+      - name: Converge host
         env:
           ANSIBLE_SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
           VPS_HOST: ${{ vars.VPS_HOST }}
-          GIT_REPO: ${{ vars.GIT_REPO || format('{0}/{1}', github.server_url, github.repository) }}
-        run: uv run ansible-playbook -i ansible/inventories/production/hosts.github-actions.yml ansible/playbooks/deploy.yml
+        run: uv run ansible-playbook -i ansible/inventories/production/hosts.github-actions.yml ansible/playbooks/site.yml
