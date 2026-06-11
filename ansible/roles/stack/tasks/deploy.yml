@@ -87,3 +87,4 @@
   when: home_stack_run_health_checks
   delegate_to: localhost
   become: false
+  no_log: '{{ home_stack_hide_secrets }}'

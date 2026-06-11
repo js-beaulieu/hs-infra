@@ -23,6 +23,7 @@
     from_ip: '{{ item }}'
     to_port: '{{ home_stack_ssh_port }}'
   loop: '{{ home_stack_admin_cidrs }}'
+  no_log: true
 - name: Allow direct public HTTP and HTTPS
   community.general.ufw:
     rule: allow
@@ -40,6 +41,7 @@
     to_port: '{{ item.1 }}'
   loop: "{{ (home_stack_cloudflare_cidrs + home_stack_firewall_extra_web_cidrs) | product([home_stack_caddy_http_port, home_stack_caddy_https_port]) | list }}"
   when: home_stack_firewall_web_exposure == "cloudflare"
+  no_log: true
 - name: Enable UFW
   community.general.ufw:
     state: enabled

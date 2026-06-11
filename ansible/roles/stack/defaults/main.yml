@@ -1,4 +1,5 @@
 ---
+home_stack_deploy_user: debian
 home_stack_app_dir: /opt/home-stack
 home_stack_compose_file: docker/compose.yml
 home_stack_env_file: /home/{{ home_stack_deploy_user }}/home-stack.env

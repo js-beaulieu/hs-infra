@@ -29,15 +29,18 @@
         ) | map('trim') | reject('equalto', '') | list
       }}
   when: home_stack_cloudflare_fetch_cidrs | bool
+  no_log: true
 - name: Use Cloudflare CIDRs as Caddy trusted proxies by default
   ansible.builtin.set_fact:
     home_stack_caddy_trusted_proxies: '{{ home_stack_cloudflare_cidrs }}'
   when:
     - home_stack_firewall_web_exposure == 'cloudflare'
     - home_stack_caddy_trusted_proxies | default([]) | length == 0
+  no_log: true
 - name: Use Cloudflare CIDRs as Keycloak admin remote ranges by default
   ansible.builtin.set_fact:
     home_stack_keycloak_admin_remote_ip_ranges: '{{ home_stack_cloudflare_cidrs }}'
   when:
     - home_stack_firewall_web_exposure == 'cloudflare'
     - home_stack_keycloak_admin_remote_ip_ranges | default([]) | length == 0
+  no_log: true

@@ -35,3 +35,4 @@
     exclusive: true
     state: present
   become: true
+  no_log: true
