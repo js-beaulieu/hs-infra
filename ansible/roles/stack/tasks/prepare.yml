@@ -27,11 +27,3 @@
     owner: root
     group: root
     mode: '0750'
-- name: Allow deploy user to run only the deployment wrapper
-  ansible.builtin.copy:
-    dest: /etc/sudoers.d/home-stack-{{ home_stack_deploy_user }}
-    owner: root
-    group: root
-    mode: '0440'
-    content: "{{ home_stack_deploy_user }} ALL=(root) NOPASSWD: /usr/local/sbin/home-stack-deploy\n"
-    validate: /usr/sbin/visudo -cf %s

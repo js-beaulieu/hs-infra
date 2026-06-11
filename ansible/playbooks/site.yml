@@ -2,7 +2,7 @@
 - name: Converge Debian VPS host baseline
   hosts: home_stack
   gather_facts: true
-  remote_user: '{{ home_stack_admin_user | default("debian") }}'
+  remote_user: '{{ home_stack_deploy_user | default("debian") }}'
   become: true
   roles: [base, docker, cloudflare, firewall, fail2ban, sshd]
   tasks:

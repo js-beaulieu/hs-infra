@@ -1,8 +1,7 @@
 ---
-home_stack_admin_user: vagrant
-home_stack_deploy_user: deploy
-home_stack_deploy_authorized_keys:
-  - "{{ lookup('env', 'HOME_STACK_LOCAL_VM_DEPLOY_AUTHORIZED_KEY') }}"
+home_stack_deploy_user: vagrant
+home_stack_authorized_keys:
+  - "{{ lookup('env', 'HOME_STACK_LOCAL_VM_ADMIN_AUTHORIZED_KEY') }}"
 home_stack_timezone: Etc/UTC
 home_stack_ssh_port: 22
 home_stack_admin_cidrs: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
@@ -11,7 +10,7 @@ home_stack_cloudflare_cidrs: []
 home_stack_firewall_extra_web_cidrs: []
 home_stack_app_dir: /opt/home-stack
 home_stack_compose_file: docker/compose.yml
-home_stack_env_file: /home/deploy/home-stack.env
+home_stack_env_file: /home/vagrant/home-stack.env
 home_stack_source_mode: local_copy
 home_stack_domain: home-stack.localhost
 home_stack_acme_email: admin@home-stack.localhost

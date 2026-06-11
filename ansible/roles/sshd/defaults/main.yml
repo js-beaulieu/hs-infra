@@ -1,7 +1,4 @@
 ---
 home_stack_ssh_port: 22
-home_stack_admin_user: debian
-home_stack_deploy_user: deploy
-home_stack_ssh_allow_users:
-  - '{{ home_stack_admin_user }}'
-  - '{{ home_stack_deploy_user }}'
+home_stack_deploy_user: debian
+home_stack_ssh_allow_users: ['{{ home_stack_deploy_user }}']

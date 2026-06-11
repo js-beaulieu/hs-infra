@@ -6,8 +6,6 @@ home_stack_release_file: /home/{{ home_stack_deploy_user }}/home-stack.release
 home_stack_source_mode: git
 home_stack_git_repo: ''
 home_stack_git_version: main
-home_stack_deploy_user: deploy
-home_stack_deploy_group: '{{ home_stack_deploy_user }}'
 home_stack_domain: ''
 home_stack_acme_email: ''
 home_stack_public_auth_origin: https://auth.{{ home_stack_domain }}

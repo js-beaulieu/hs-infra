@@ -1,9 +1,7 @@
 ---
-home_stack_admin_user: debian
-home_stack_deploy_user: deploy
-home_stack_deploy_authorized_keys:
-  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDOCUMENTATIONONLY000000000000000000000000
-    example-key
+home_stack_deploy_user: debian
+home_stack_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDOCUMENTATIONONLY0000000000000000000 example-key
 home_stack_timezone: Etc/UTC
 home_stack_ssh_port: 22
 home_stack_admin_cidrs: [127.0.0.1/32]
@@ -12,8 +10,8 @@ home_stack_cloudflare_cidrs: []
 home_stack_firewall_extra_web_cidrs: []
 home_stack_app_dir: /opt/home-stack
 home_stack_compose_file: docker/compose.yml
-home_stack_env_file: /home/deploy/home-stack.env
-home_stack_release_file: /home/deploy/home-stack.release
+home_stack_env_file: /home/debian/home-stack.env
+home_stack_release_file: /home/debian/home-stack.release
 home_stack_source_mode: git
 home_stack_git_repo: https://github.com/example/home-stack.git
 home_stack_git_version: main

@@ -3,6 +3,8 @@
 # Ansible loads the encrypted file directly through community.sops.
 
 # Required private/site-specific values.
+home_stack_authorized_keys:
+  - ssh-ed25519 AAAA... your-ssh-public-key
 home_stack_admin_cidrs:
   - 203.0.113.10/32
 home_stack_domain: example.invalid
@@ -16,7 +18,6 @@ home_stack_tasks_db_password: replace-with-real-secret
 # Optional connection/site overrides. Defaults are normally enough.
 # ansible_port: 22
 # home_stack_ssh_port: 22
-# home_stack_admin_user: debian
-# home_stack_deploy_user: deploy
+# home_stack_deploy_user: debian
 # home_stack_firewall_web_exposure: cloudflare
 # home_stack_keycloak_admin_client_ip_ranges: '{{ home_stack_admin_cidrs }}'

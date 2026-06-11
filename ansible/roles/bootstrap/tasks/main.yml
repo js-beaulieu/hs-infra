@@ -15,33 +15,23 @@
       - ansible_facts.distribution == "Debian"
       - ansible_facts.distribution_major_version == "13"
     fail_msg: This deployment currently targets Debian 13 only.
-- name: Ensure admin user exists with sudo
+- name: Require at least one authorized key
+  ansible.builtin.assert:
+    that: [home_stack_authorized_keys | length > 0]
+    fail_msg: home_stack_authorized_keys must include at least one public key.
+- name: Ensure deploy user exists with sudo
   ansible.builtin.user:
-    name: '{{ home_stack_admin_user }}'
+    name: '{{ home_stack_deploy_user }}'
     shell: /bin/bash
     groups: sudo
     append: true
     create_home: true
     state: present
   become: true
-- name: Ensure deploy user exists without docker group membership
-  ansible.builtin.user:
-    name: '{{ home_stack_deploy_user }}'
-    shell: /bin/bash
-    groups: ''
-    append: false
-    create_home: true
-    state: present
-  become: true
-- name: Require at least one deploy authorized key
-  ansible.builtin.assert:
-    that: [home_stack_deploy_authorized_keys | length > 0]
-    fail_msg: home_stack_deploy_authorized_keys must include at least one public
-      key.
 - name: Install deploy SSH authorized keys
   ansible.posix.authorized_key:
     user: '{{ home_stack_deploy_user }}'
-    key: "{{ home_stack_deploy_authorized_keys | join('\n') }}"
+    key: "{{ home_stack_authorized_keys | join('\n') }}"
     exclusive: true
     state: present
   become: true

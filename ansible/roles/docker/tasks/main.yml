@@ -61,11 +61,3 @@
     name: docker
     enabled: true
     state: started
-- name: Ensure deploy-oriented users have no supplementary groups
-  ansible.builtin.user:
-    name: '{{ item }}'
-    groups: ''
-    append: false
-    state: present
-  loop: '{{ home_stack_users_without_docker_group }}'
-  when: home_stack_users_without_docker_group | length > 0
