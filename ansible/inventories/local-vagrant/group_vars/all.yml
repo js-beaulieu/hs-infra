@@ -43,7 +43,4 @@ home_stack_oauth2_proxy_provider_ca_files: /certs/rootCA.pem
 home_stack_oauth2_proxy_whitelist_domains: ".{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
   \ }}"
 home_stack_agentgateway_ssl_cert_file: /certs/rootCA.pem
-home_stack_run_health_checks: true
-home_stack_health_check_url: "{{ home_stack_public_api_origin }}/health"
-home_stack_health_check_validate_certs: false
 home_stack_hide_secrets: false

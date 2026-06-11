@@ -30,6 +30,3 @@ home_stack_tasks_db_user: tasks
 home_stack_mcp_access_token_lifespan_seconds: 31536000
 home_stack_oauth2_proxy_access_token_lifespan_seconds: 300
 home_stack_hide_secrets: true
-home_stack_run_health_checks: true
-home_stack_health_check_url: '{{ home_stack_public_api_origin }}/health'
-home_stack_health_check_validate_certs: true

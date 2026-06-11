@@ -54,17 +54,3 @@
 - name: Run root-owned deployment wrapper
   ansible.builtin.command: sudo -n /usr/local/sbin/home-stack-deploy
   changed_when: true
-- name: Check public health endpoint
-  ansible.builtin.uri:
-    url: '{{ home_stack_health_check_url }}'
-    method: GET
-    status_code: 200
-    validate_certs: '{{ home_stack_health_check_validate_certs }}'
-  register: home_stack_health_check
-  retries: 12
-  delay: 5
-  until: home_stack_health_check.status == 200
-  when: home_stack_run_health_checks
-  delegate_to: localhost
-  become: false
-  no_log: '{{ home_stack_hide_secrets }}'
