@@ -48,12 +48,12 @@ jobs:
         env:
           ANSIBLE_SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
           VPS_HOST: ${{ vars.VPS_HOST }}
-          GIT_REPO: ${{ vars.GIT_REPO }}
+          GIT_REPO: ${{ vars.GIT_REPO || format('{0}/{1}', github.server_url, github.repository) }}
         run: uv run ansible-playbook -i ansible/inventories/production/hosts.github-actions.yml ansible/playbooks/site.yml
 
       - name: Deploy stack
         env:
           ANSIBLE_SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
           VPS_HOST: ${{ vars.VPS_HOST }}
-          GIT_REPO: ${{ vars.GIT_REPO }}
+          GIT_REPO: ${{ vars.GIT_REPO || format('{0}/{1}', github.server_url, github.repository) }}
         run: uv run ansible-playbook -i ansible/inventories/production/hosts.github-actions.yml ansible/playbooks/deploy.yml

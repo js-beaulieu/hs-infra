@@ -148,8 +148,9 @@ Required GitHub Environment variables are intentionally minimal:
 
 ```txt
 VPS_HOST
-GIT_REPO
 ```
+
+`GIT_REPO` is optional — it defaults to the current repository URL if not set.
 
 Required GitHub Environment secrets are:
 

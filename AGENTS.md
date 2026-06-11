@@ -56,6 +56,16 @@ task sops:encrypt   # encrypt vault.sops.yml in place
 - Local Vagrant inventory is `ansible/inventories/local-vagrant/`; do not reintroduce the old `local-vm` inventory path.
 - yamlfix must exclude `**/*.sops.yml` and `.sops.yaml` — the Taskfile handles this, but manual yamlfix runs that skip these excludes will corrupt encrypted SOPS files.
 
+## Documentation Invariants
+
+When editing workflow files, role defaults, or deployment docs, verify these mappings stay consistent:
+
+- Secrets and vars listed in `docs/deployment/ansible.md` must match exactly what `.github/workflows/deploy.yml` references via `${{ secrets.* }}` and `${{ vars.* }}`.
+- Role default variables referenced in docs must still exist in `ansible/roles/*/defaults/main.yml`.
+- Inventory env lookups in `ansible/inventories/production/hosts.github-actions.yml` must have corresponding vars/secrets in the workflow, or a fallback expression.
+- If a workflow env var has a fallback (like `GIT_REPO` defaulting to the current repo URL), the docs must note it as optional with its fallback.
+- When adding or removing a workflow step that uses a secret or var, update the docs' required secrets/vars lists to match.
+
 ## Style
 
 - Compose services always declare explicit `networks:` — no implicit default network.
