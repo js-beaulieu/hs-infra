@@ -5,6 +5,8 @@ api.{$DOMAIN} {
 
 	@tasks_protected_resource_metadata path /tasks/.well-known/oauth-protected-resource/mcp
 	@tasks_authorization_server_metadata path /tasks/.well-known/oauth-authorization-server/mcp /tasks/.well-known/oauth-authorization-server/mcp/client-registration
+	@tasks_mcp_protected_resource_metadata path /tasks/mcp/.well-known/oauth-protected-resource
+	@tasks_mcp_authorization_server_metadata path /tasks/mcp/.well-known/oauth-authorization-server /tasks/mcp/.well-known/oauth-authorization-server/client-registration
 
 	@tasks_health {
 		method GET HEAD
@@ -56,6 +58,27 @@ api.{$DOMAIN} {
 		handle @tasks_authorization_server_metadata {
 			uri strip_prefix /tasks
 			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle @tasks_mcp_protected_resource_metadata {
+			rewrite * /.well-known/oauth-protected-resource/mcp
+			reverse_proxy agentgateway:3000 {
+				import proxy_headers
+			}
+		}
+
+		handle /tasks/mcp/.well-known/oauth-authorization-server/client-registration {
+			rewrite * /realms/home-stack/clients-registrations/openid-connect
+			reverse_proxy keycloak:8080 {
+				import proxy_headers
+			}
+		}
+
+		handle /tasks/mcp/.well-known/oauth-authorization-server {
+			rewrite * /realms/home-stack/.well-known/openid-configuration
+			reverse_proxy keycloak:8080 {
 				import proxy_headers
 			}
 		}

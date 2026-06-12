@@ -32,6 +32,52 @@ def test_as_metadata_endpoint_returns_200_with_required_fields(http_client, flow
     assert payload.get("token_endpoint") is not None
 
 
+def test_resource_relative_metadata_endpoint_returns_200_with_required_fields(
+    http_client, flow_env
+):
+    res = http_client.get(
+        f"{flow_env.mcp_resource}/.well-known/oauth-protected-resource"
+    )
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["resource"] == flow_env.mcp_resource
+    assert payload.get("authorization_servers") is not None
+
+
+def test_resource_relative_as_metadata_endpoint_returns_200_with_required_fields(
+    http_client, flow_env
+):
+    res = http_client.get(
+        f"{flow_env.mcp_resource}/.well-known/oauth-authorization-server"
+    )
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload.get("issuer") is not None
+    assert payload.get("authorization_endpoint") is not None
+    assert payload.get("token_endpoint") is not None
+
+
+def test_resource_relative_dcr_endpoint_registers_a_new_mcp_client_and_returns_client_id(
+    http_client, flow_env
+):
+    res = http_client.post(
+        f"{flow_env.mcp_resource}/.well-known/oauth-authorization-server/client-registration",
+        headers={"Content-Type": "application/json"},
+        json={
+            "client_name": "flow-test-resource-relative-mcp-client",
+            "redirect_uris": ["http://localhost:7777/callback"],
+            "grant_types": ["authorization_code", "refresh_token"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+            "scope": "openid profile email mcp",
+        },
+    )
+    assert res.status_code == 201
+    payload = res.json()
+    assert payload.get("client_id")
+    assert "authorization_code" in payload.get("grant_types", [])
+
+
 def test_dcr_endpoint_registers_a_new_public_mcp_client_and_returns_client_id(
     http_client, flow_env
 ):
