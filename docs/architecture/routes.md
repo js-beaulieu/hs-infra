@@ -6,7 +6,7 @@
 
 1. `/oauth2/*` goes directly to the shared oauth2-proxy (start, callback, auth, userinfo, sign-out).
 1. MCP OAuth metadata exact paths under `/tasks/.well-known/*/mcp` go to agentgateway.
-1. Exact `GET`/`HEAD /tasks/health` strips `/tasks` and goes to `tasks-api` `/health` without auth.
+1. Public app API routes strip `/tasks` and go to `tasks-api` without auth: `GET`/`HEAD /tasks/health` and Huma's generated `GET` routes `/tasks/openapi.json`, `/tasks/openapi.yaml`, `/tasks/openapi-3.0.json`, `/tasks/openapi-3.0.yaml`, `/tasks/docs`, and `/tasks/schemas/{schema}`.
 1. Exact `/tasks/mcp` and `/tasks/mcp/*` go to agentgateway and must not browser-redirect.
 1. `/tasks` and `/tasks/*` use oauth2-proxy auth checks, strip `/tasks`, and return `401/403`, not login redirects.
 1. Unsafe methods require `Origin: https://tasks.${DOMAIN}` or same-origin `Referer`.
@@ -55,6 +55,7 @@ For each new app:
 - Create a dedicated Docker network for that app.
 - Attach Caddy and only the app-specific private services to that network.
 - Add app-specific route precedence to `caddy/<app>.caddy`.
+- Keep health and Huma-generated `/openapi.json`, `/openapi.yaml`, `/openapi-3.0.json`, `/openapi-3.0.yaml`, `/docs`, and `/schemas/{schema}` routes public before the protected API catch-all.
 - Add a Keycloak group such as `/newapp-users` and enforce it at the gateway, not inside the API.
 - Add the app route under `api.${DOMAIN}/{app}` and keep OAuth browser login on the shared `api.${DOMAIN}/oauth2/*` route unless there is a concrete need for per-app oauth2-proxy instances.
 

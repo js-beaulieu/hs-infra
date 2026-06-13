@@ -8,8 +8,18 @@ api.{$DOMAIN} {
 	@tasks_mcp_protected_resource_metadata path /tasks/mcp/.well-known/oauth-protected-resource
 	@tasks_mcp_authorization_server_metadata path /tasks/mcp/.well-known/oauth-authorization-server /tasks/mcp/.well-known/oauth-authorization-server/client-registration
 
-	@tasks_health {
-		method GET HEAD
+	@tasks_public_api_get {
+		method GET
+		path /tasks/health /tasks/openapi.json /tasks/openapi.yaml /tasks/openapi-3.0.json /tasks/openapi-3.0.yaml /tasks/docs
+	}
+
+	@tasks_public_schema_get {
+		method GET
+		path_regexp huma_schema ^/tasks/schemas/[^/]+$
+	}
+
+	@tasks_health_head {
+		method HEAD
 		path /tasks/health
 	}
 
@@ -83,7 +93,23 @@ api.{$DOMAIN} {
 			}
 		}
 
-		handle @tasks_health {
+		handle @tasks_public_api_get {
+			uri strip_prefix /tasks
+			reverse_proxy tasks-api:8080 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+
+		handle @tasks_public_schema_get {
+			uri strip_prefix /tasks
+			reverse_proxy tasks-api:8080 {
+				import proxy_headers
+				header_up -Authorization
+			}
+		}
+
+		handle @tasks_health_head {
 			uri strip_prefix /tasks
 			reverse_proxy tasks-api:8080 {
 				import proxy_headers

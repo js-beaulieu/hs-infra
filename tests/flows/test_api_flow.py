@@ -8,6 +8,23 @@ def test_public_health_endpoint_returns_success_without_auth(http_client, flow_e
     assert res.is_success, f"health should return 2xx, got {res.status_code}"
 
 
+def test_huma_documentation_routes_are_public_without_auth(http_client, flow_env):
+    public_paths = (
+        "/openapi.json",
+        "/openapi.yaml",
+        "/openapi-3.0.json",
+        "/openapi-3.0.yaml",
+        "/docs",
+        "/schemas/Example.json",
+    )
+
+    for path in public_paths:
+        res = http_client.get(f"{flow_env.api_base}{path}")
+        assert res.status_code not in {401, 403}, (
+            f"{path} should bypass gateway auth, got {res.status_code}"
+        )
+
+
 def test_protected_api_without_valid_session_returns_401_or_403_not_302(
     http_client, flow_env
 ):

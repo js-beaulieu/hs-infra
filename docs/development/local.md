@@ -49,6 +49,8 @@ Initial checks:
 
 ```sh
 curl -i https://api.${DOMAIN}/tasks/health
+curl -i https://api.${DOMAIN}/tasks/openapi.json
+curl -i https://api.${DOMAIN}/tasks/docs
 curl -i https://api.${DOMAIN}/tasks
 curl -i https://api.${DOMAIN}/tasks/users/me
 curl -i https://api.${DOMAIN}/tasks/mcp

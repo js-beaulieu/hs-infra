@@ -85,12 +85,13 @@ MCP flow:
 
 ### Phase 3: Caddy Routing
 
-Update `docker/caddy/Caddyfile`.
+Update `caddy/Caddyfile` and `caddy/tasks.caddy`.
 
 - Keep `auth.{$DOMAIN}` behavior unchanged unless required for callback/DCR compatibility.
 - Add `api.{$DOMAIN}` as the public API site.
 - Move `/oauth2/*` handling from `tasks.{$DOMAIN}` to shared `api.{$DOMAIN}/oauth2/*`.
 - Move public health from `/api/health` to `/tasks/health`.
+- Keep Huma-generated `GET /tasks/openapi.json`, `/tasks/openapi.yaml`, `/tasks/openapi-3.0.json`, `/tasks/openapi-3.0.yaml`, `/tasks/docs`, and `/tasks/schemas/{schema}` public before the protected API catch-all.
 - Move MCP from `/api/mcp` and `/api/mcp/*` to `/tasks/mcp` and `/tasks/mcp/*`.
 - Move MCP protected-resource metadata from `/.well-known/oauth-protected-resource/api/mcp` to `/tasks/.well-known/oauth-protected-resource/mcp`.
 - Keep agentgateway authorization-server proxy routes only if we deliberately keep agentgateway AS-proxy/DCR compatibility.
@@ -108,7 +109,7 @@ If production DNS points `tasks.${DOMAIN}` to a CDN, Caddy should not be the aut
 
 ### Phase 4: oauth2-proxy
 
-Update `docker/oauth2-proxy/oauth2-proxy.cfg` only if needed.
+Update `oauth2-proxy/oauth2-proxy.cfg` only if needed.
 
 - Keep one oauth2-proxy instance.
 - Change cookie name from `__Host-oauth2_proxy` to `__Secure-oauth2_proxy` because `__Host-` cookies cannot share across subdomains. The frontend (`tasks.${DOMAIN}`) and API gateway (`api.${DOMAIN}`) must share the SSO session.
@@ -126,7 +127,7 @@ Update `docker/compose.yml` oauth2-proxy environment:
 
 ### Phase 5: Keycloak Bootstrap
 
-Update `docker/keycloak/bootstrap.sh`.
+Update `keycloak/bootstrap.sh`.
 
 - Change the `oauth2-proxy-tasks` redirect URI to `https://api.$DOMAIN/oauth2/callback`.
 - Set browser client web origins to include `https://tasks.$DOMAIN` and `https://api.$DOMAIN` where Keycloak requires it.
@@ -137,7 +138,7 @@ Update `docker/keycloak/bootstrap.sh`.
 
 ### Phase 6: agentgateway
 
-Update `docker/agentgateway/config.yaml.tmpl`.
+Update `agentgateway/config.yaml.tmpl`.
 
 - Change protected-resource metadata match to `/tasks/.well-known/oauth-protected-resource/mcp`.
 - Change MCP traffic matches to exact `/tasks/mcp` and prefix `/tasks/mcp/`.
@@ -146,13 +147,13 @@ Update `docker/agentgateway/config.yaml.tmpl`.
 - Keep backend target as `http://tasks-api:8080/mcp`.
 - Treat `/tasks/.well-known/oauth-authorization-server/mcp` and `/tasks/.well-known/oauth-authorization-server/mcp/client-registration` as optional agentgateway AS-proxy/DCR compatibility routes, not RFC-required protected-resource metadata.
 
-Update `docker-compose.yml` agentgateway/keycloak bootstrap environment:
+Update `docker/compose.yml` agentgateway/keycloak bootstrap environment:
 
 - `MCP_RESOURCE_URI=https://api.${DOMAIN}/tasks/mcp`.
 
 ### Phase 7: Environment And Local TLS
 
-Update `docker/.env.example`.
+Update `.env.example`.
 
 - Add `api.home-stack.localhost` to the mkcert command.
 - Document production DNS:
@@ -174,7 +175,7 @@ Update `README.md` and `docs/planning/implementation-plan.md`.
 - Document that agentgateway AS-proxy/DCR routes are optional compatibility routes if kept.
 - Update curl checks and validation checklist.
 
-Update `docker/tasks-web/index.html` if it remains in the repo.
+Update `tasks-web/index.html` if it remains in the repo.
 
 - Change copy to say API is on `api.${DOMAIN}/tasks` and MCP is `/tasks/mcp`.
 - Keep it clearly positioned as a local placeholder if production frontend is CDN-hosted.
@@ -201,7 +202,7 @@ Run this loop after Phase 2.
 1. The implementation loop runs the Testcontainers flow tests repeatedly until they pass.
 1. No test logic, assertions, status expectations, auth expectations, spoofing expectations, or security expectations are changed after the baseline is green without asking first.
 1. `tasks.${DOMAIN}` can be hosted by a CDN/static provider without proxying through the VPS for `/api` path routing.
-1. `api.${DOMAIN}` serves `/tasks/health`, normal `/tasks` API routes, `/tasks/mcp`, and MCP metadata through Caddy on the VPS.
+1. `api.${DOMAIN}` serves public `/tasks/health`, public Huma docs/spec/schema routes, normal protected `/tasks` API routes, `/tasks/mcp`, and MCP metadata through Caddy on the VPS.
 1. Browser API calls from `tasks.${DOMAIN}` to `api.${DOMAIN}/tasks` work only with strict allowed-origin CORS and credentials.
 1. Untrusted origins do not receive permissive credentialed CORS.
 1. Unsafe browser API methods are protected by gateway-level CSRF origin checks.

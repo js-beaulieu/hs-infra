@@ -77,9 +77,9 @@ Implement these route behaviors in this order.
 
    Public metadata required by MCP/OAuth clients, routed to agentgateway. These routes must not browser-redirect. At minimum include exact path `/tasks/.well-known/oauth-protected-resource/mcp`. If using agentgateway's authorization-server proxy mode for Keycloak compatibility, also include exact paths `/tasks/.well-known/oauth-authorization-server/mcp` and `/tasks/.well-known/oauth-authorization-server/mcp/client-registration`.
 
-1. `/tasks/health`
+1. Public app API routes
 
-   Public. Exact path only. Prefer `GET` and `HEAD` only.
+   Public. `GET`/`HEAD /tasks/health` and Huma's generated `GET` routes: `/tasks/openapi.json`, `/tasks/openapi.yaml`, `/tasks/openapi-3.0.json`, `/tasks/openapi-3.0.yaml`, `/tasks/docs`, and `/tasks/schemas/{schema}`. Keep these before the protected API catch-all.
 
 1. `/tasks/mcp` and `/tasks/mcp/*`
 
@@ -166,7 +166,7 @@ Do not use `/tasks/mcp*`; it matches unwanted paths like `/tasks/mcpfoo`.
 
 - Route MCP OAuth protected-resource metadata paths on `api.${DOMAIN}/tasks` directly to agentgateway. Include exact `/tasks/.well-known/oauth-protected-resource/mcp` and, if enabled in agentgateway, exact `/tasks/.well-known/oauth-authorization-server/mcp` and `/tasks/.well-known/oauth-authorization-server/mcp/client-registration`.
 
-- Route exact `/tasks/health` to `tasks-api` without auth after stripping `/tasks`.
+- Route `GET`/`HEAD /tasks/health` and Huma's generated `GET` docs/spec/schema routes to `tasks-api` without auth after stripping `/tasks`.
 
 - Route exact `/tasks/mcp` and `/tasks/mcp/*` to agentgateway, preserving the client `Authorization` header only as far as agentgateway.
 
@@ -326,21 +326,21 @@ Required files:
 - `docker/compose.yml`
 - `docker/core.yml`
 - `docker/tasks.yml`
-- `docker/.env.example`
-- `docker/caddy/Caddyfile`
-- `docker/caddy/tasks.caddy`
-- `docker/oauth2-proxy/oauth2-proxy.cfg`
-- `docker/agentgateway/config.yaml.tmpl`
-- `docker/agentgateway/bootstrap.sh`
-- `docker/postgres/bootstrap.sh`
-- `docker/keycloak/bootstrap.sh`
-- `docker/keycloak/healthcheck.sh`
+- `.env.example`
+- `caddy/Caddyfile`
+- `caddy/tasks.caddy`
+- `oauth2-proxy/oauth2-proxy.cfg`
+- `agentgateway/config.yaml.tmpl`
+- `agentgateway/bootstrap.sh`
+- `postgres/bootstrap.sh`
+- `keycloak/bootstrap.sh`
+- `keycloak/healthcheck.sh`
 - `README.md`
 
 Optional files:
 
-- `docker/keycloak/realm-export.json` if using import/export.
-- `docker/tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
+- `keycloak/realm-export.json` if using import/export.
+- `tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
 
 `docker/compose.yml` is a thin default entrypoint that includes shared platform and app-specific Compose files. Keep shared infrastructure in `docker/core.yml`; keep Tasks services and Tasks-specific shared-service network attachments in `docker/tasks.yml`. Future app files should follow the same pattern.
 
@@ -362,7 +362,7 @@ Required persistent volumes:
 
 - Caddy `/data` and `/config` so ACME account material and certificates persist.
 - Keycloak Postgres data so realm, user, group, and client configuration persists.
-- agentgateway rendered config volume so `agentgateway-bootstrap` can generate `/etc/agentgateway/config.yaml` for the runtime container from `docker/agentgateway/config.yaml.tmpl`.
+- agentgateway rendered config volume so `agentgateway-bootstrap` can generate `/etc/agentgateway/config.yaml` for the runtime container from `agentgateway/config.yaml.tmpl`.
 - Redis persistence is optional for the first slice; losing Redis sessions only forces browser reauthentication.
 
 Required explicit networks:
@@ -387,6 +387,7 @@ Implement the `tasks.${DOMAIN}` frontend and canonical `api.${DOMAIN}/tasks` API
 Expected flows:
 
 - `GET https://api.${DOMAIN}/tasks/health` returns public health response from the private API.
+- `GET https://api.${DOMAIN}/tasks/openapi.json` and `GET https://api.${DOMAIN}/tasks/docs` return Huma-generated public API documentation without auth.
 - Normal browser API routes such as `https://api.${DOMAIN}/tasks/users/me` reach `tasks-api` without an external `/api` prefix.
 - `GET https://tasks.${DOMAIN}/` redirects unauthenticated browser users to oauth2-proxy/Keycloak login.
 - `GET https://api.${DOMAIN}/tasks` without valid browser/session auth returns `401/403`, not `302`.
@@ -474,6 +475,8 @@ End-to-end flow verification must prove the three primary paths work and stay is
 
 - `curl -i https://api.${DOMAIN}/tasks/health` returns public health response.
 
+- `curl -i https://api.${DOMAIN}/tasks/openapi.json` and `curl -i https://api.${DOMAIN}/tasks/docs` return Huma-generated public API documentation without auth.
+
 - `curl -i https://api.${DOMAIN}/tasks/health/extra` does not hit the public health route.
 
 - `curl -i https://tasks.${DOMAIN}/` returns browser login redirect when unauthenticated.
@@ -537,7 +540,7 @@ End-to-end flow verification must prove the three primary paths work and stay is
 ## Deliverables
 
 - Working config files for Caddy, oauth2-proxy, Keycloak, agentgateway, and Docker Compose.
-- `docker/.env.example` with all required variables and no real secrets.
+- `.env.example` with all required variables and no real secrets.
 - README explaining how to set `DOMAIN`, Keycloak secrets, and client IDs.
 - README explaining route precedence and why `/tasks/mcp*` must not be used.
 - README explaining how to add another app with its own Docker network.
