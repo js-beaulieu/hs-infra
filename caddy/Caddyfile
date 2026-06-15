@@ -130,4 +130,10 @@ auth.{$DOMAIN} {
 	}
 }
 
+watchtower.{$DOMAIN} {
+	{$CADDY_TLS_DIRECTIVE}
+
+	reverse_proxy watchtower:8080
+}
+
 import tasks.caddy

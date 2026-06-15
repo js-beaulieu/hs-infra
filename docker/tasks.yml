@@ -42,6 +42,8 @@ services:
   tasks-api:
     <<: *security_defaults
     image: ghcr.io/js-beaulieu/tasks-api:latest
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     environment:
       PG_CONNECTION_STRING: "host=postgres port=5432 user=${TASKS_DB_USER} password=${TASKS_DB_PASSWORD} dbname=${TASKS_DB_NAME} sslmode=disable"
@@ -57,22 +59,15 @@ services:
 
   tasks-web:
     <<: *security_defaults
-    image: nginx:1-alpine
+    image: ghcr.io/js-beaulieu/tasks-web:latest
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     read_only: true
     cap_drop:
       - ALL
     cap_add:
-      - CHOWN
       - NET_BIND_SERVICE
-      - SETGID
-      - SETUID
-    tmpfs:
-      - /var/cache/nginx
-      - /var/run
-      - /var/log/nginx
-    volumes:
-      - ../tasks-web:/usr/share/nginx/html:ro
     networks:
       tasks-web:
 
