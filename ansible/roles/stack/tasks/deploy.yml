@@ -45,6 +45,13 @@
     that: [home_stack_env_dir_stat.stat.isdir | default(false)]
     fail_msg: '{{ home_stack_env_file | dirname }} must be an existing directory
       writable by {{ home_stack_deploy_user }}.'
+- name: Render deploy wrapper
+  ansible.builtin.template:
+    src: home-stack-deploy.j2
+    dest: /usr/local/sbin/home-stack-deploy
+    owner: root
+    group: root
+    mode: '0750'
 - name: Render production environment file
   ansible.builtin.template:
     src: env.j2
