@@ -30,7 +30,7 @@ api.{$DOMAIN} {
 	@unsafe_bad_fetch_site `method('POST', 'PUT', 'PATCH', 'DELETE') && {header.Sec-Fetch-Site} == "cross-site"`
 
 	@missing_tasks_group {
-		not header_regexp tasks_group X-Auth-Groups `(^|.*, *)/tasks-users(,.*|$)`
+		not header_regexp tasks_group X-Auth-Request-Groups `(^|.*, *)/tasks-users(,.*|$)`
 	}
 
 	@cors_origin header Origin {$PUBLIC_WEB_ORIGIN}
@@ -140,15 +140,15 @@ api.{$DOMAIN} {
 
 				import oauth2_auth_check
 				import require_tasks_group
-				request_header X-Auth-Name {header.X-Auth-Preferred-Username}
+				request_header X-Auth-Name {header.X-Auth-Request-Preferred-Username}
 
 				uri strip_prefix /tasks
 				reverse_proxy tasks-api:8080 {
 					import proxy_headers
 					header_up -Authorization
-					header_up X-User-ID {header.X-Auth-Subject}
+					header_up X-User-ID {header.X-Auth-Request-User}
 					header_up X-User-Name {header.X-Auth-Name}
-					header_up X-User-Email {header.X-Auth-Email}
+					header_up X-User-Email {header.X-Auth-Request-Email}
 				}
 			}
 		}
@@ -165,14 +165,14 @@ tasks.{$DOMAIN} {
 	import strip_identity_headers
 
 	@missing_tasks_group {
-		not header_regexp tasks_group X-Auth-Groups `(^|.*, *)/tasks-users(,.*|$)`
+		not header_regexp tasks_group X-Auth-Request-Groups `(^|.*, *)/tasks-users(,.*|$)`
 	}
 
 	route {
 		handle {
 			import oauth2_browser_auth_check
 			import require_tasks_group
-			request_header X-Auth-Name {header.X-Auth-Preferred-Username}
+			request_header X-Auth-Name {header.X-Auth-Request-Preferred-Username}
 
 			reverse_proxy tasks-web:80 {
 				import proxy_headers
