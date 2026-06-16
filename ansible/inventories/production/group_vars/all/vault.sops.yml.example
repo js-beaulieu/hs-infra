@@ -16,6 +16,10 @@ home_stack_oauth2_proxy_cookie_secret: replace-with-real-secret
 home_stack_tasks_db_password: replace-with-real-secret
 home_stack_watchtower_api_token: replace-with-real-secret
 
+# Cloudflare API token with Zone:DNS:Edit permission for DNS-01 ACME.
+# Required in production when using Cloudflare-proxied domains.
+home_stack_cloudflare_api_token: replace-with-real-cloudflare-api-token
+
 # Optional connection/site overrides. Defaults are normally enough.
 # ansible_port: 22
 # home_stack_ssh_port: 22

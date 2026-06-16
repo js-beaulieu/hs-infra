@@ -1,5 +1,5 @@
 api.{$DOMAIN} {
-	{$CADDY_TLS_DIRECTIVE}
+	import {$CADDY_TLS_INCLUDE}
 
 	import strip_identity_headers
 
@@ -160,7 +160,7 @@ api.{$DOMAIN} {
 }
 
 tasks.{$DOMAIN} {
-	{$CADDY_TLS_DIRECTIVE}
+	import {$CADDY_TLS_INCLUDE}
 
 	import strip_identity_headers
 

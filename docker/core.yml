@@ -5,9 +5,14 @@ x-security-defaults: &security_defaults
 services:
   caddy:
     <<: *security_defaults
-    image: caddy:2-alpine
+    image: ghcr.io/js-beaulieu/caddy-cloudflare:2-alpine
+    build:
+      context: ../caddy
+      dockerfile: Dockerfile
     restart: unless-stopped
     read_only: true
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     tmpfs:
       - /tmp
     ports:
@@ -16,9 +21,10 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
+      CF_API_TOKEN: ${CF_API_TOKEN:-}
       PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-https://tasks.${DOMAIN}}
       PUBLIC_OAUTH2_ORIGIN: ${PUBLIC_OAUTH2_ORIGIN:-https://api.${DOMAIN}}
-      CADDY_TLS_DIRECTIVE: ${CADDY_TLS_DIRECTIVE:-}
+      CADDY_TLS_INCLUDE: ${CADDY_TLS_INCLUDE:-tls_cloudflare.caddy}
       CADDY_TRUSTED_PROXIES: ${CADDY_TRUSTED_PROXIES}
       KEYCLOAK_ADMIN_REMOTE_IP_RANGES: ${KEYCLOAK_ADMIN_REMOTE_IP_RANGES}
       KEYCLOAK_ADMIN_CLIENT_IP_RANGES: ${KEYCLOAK_ADMIN_CLIENT_IP_RANGES}
