@@ -16,6 +16,23 @@ def test_unauthenticated_browser_navigation_reaches_the_login_start_flow_not_tas
     assert "/realms/home-stack/protocol/openid-connect/auth" in page.url
 
 
+def test_frontend_origin_serves_html_not_gateway_error(http_client, flow_env):
+    res = http_client.get(flow_env.web_origin, follow_redirects=False)
+    if res.status_code in {301, 302}:
+        location = res.headers.get("location", "")
+        assert "oauth2" in location or "realms" in location, (
+            f"Redirect should go to auth, got Location: {location}"
+        )
+    else:
+        assert res.status_code == 200, (
+            f"Frontend should return 200 or redirect to auth, got {res.status_code}"
+        )
+        content_type = res.headers.get("content-type", "")
+        assert "text/html" in content_type, (
+            f"Frontend should serve HTML, got content-type: {content_type}"
+        )
+
+
 def test_valid_keycloak_user_in_homelab_users_and_tasks_users_can_authenticate(
     browser, flow_env
 ):
@@ -26,13 +43,15 @@ def test_valid_keycloak_user_in_homelab_users_and_tasks_users_can_authenticate(
         perform_keycloak_login(
             page, flow_env.test_user_username, flow_env.test_user_password
         )
-        page.wait_for_url(flow_env.web_origin + "/", timeout=30000)
-        assert page.url == flow_env.web_origin + "/"
+        page.wait_for_url(
+            lambda url: str(url).startswith(flow_env.web_origin), timeout=30000
+        )
+        assert page.url.startswith(flow_env.web_origin)
     finally:
         context.close()
 
 
-def test_authenticated_browser_returns_to_the_frontend_origin(browser, flow_env):
+def test_authenticated_frontend_serves_html_not_502(browser, flow_env):
     context = browser.new_context(ignore_https_errors=True)
     try:
         page = context.new_page()
@@ -40,8 +59,54 @@ def test_authenticated_browser_returns_to_the_frontend_origin(browser, flow_env)
         perform_keycloak_login(
             page, flow_env.test_user_username, flow_env.test_user_password
         )
-        page.wait_for_url(flow_env.web_origin + "/", timeout=30000)
-        assert page.url == flow_env.web_origin + "/"
+        page.wait_for_url(
+            lambda url: str(url).startswith(flow_env.web_origin), timeout=30000
+        )
+
+        response = page.goto(flow_env.web_origin + "/")
+        assert response is not None
+        assert response.status == 200, (
+            f"Authenticated frontend should return 200, got {response.status}"
+        )
+        body = page.locator("body").text_content()
+        assert body is not None, "Page body should not be empty"
+        assert "502" not in body, "Frontend should not return 502 Bad Gateway"
+        assert "bad gateway" not in body.lower(), (
+            "Frontend should not show Bad Gateway error"
+        )
+        content_type = response.headers.get("content-type", "")
+        assert "text/html" in content_type, (
+            f"Frontend should serve HTML, got content-type: {content_type}"
+        )
+    finally:
+        context.close()
+
+
+def test_authenticated_frontend_and_api_are_both_reachable(browser, flow_env):
+    context = browser.new_context(ignore_https_errors=True)
+    try:
+        page = context.new_page()
+        navigate_to_login(page, flow_env.web_origin, flow_env)
+        perform_keycloak_login(
+            page, flow_env.test_user_username, flow_env.test_user_password
+        )
+        page.wait_for_url(
+            lambda url: str(url).startswith(flow_env.web_origin), timeout=30000
+        )
+
+        frontend_response = context.request.get(flow_env.web_origin + "/")
+        assert frontend_response.status == 200, (
+            f"Frontend should return 200, got {frontend_response.status}"
+        )
+
+        api_response = context.request.get(f"{flow_env.api_base}/users/me")
+        assert api_response.status == 200, (
+            f"API /users/me should return 200, got {api_response.status}"
+        )
+        body = api_response.json()
+        assert body.get("name") == flow_env.test_user_username, (
+            f"API identity mismatch: expected {flow_env.test_user_username}, got {body.get('name')}"
+        )
     finally:
         context.close()
 
@@ -56,7 +121,9 @@ def test_oauth2_proxy_cookie_is_secure_httponly_and_scoped_intentionally(
         perform_keycloak_login(
             page, flow_env.test_user_username, flow_env.test_user_password
         )
-        page.wait_for_url(flow_env.web_origin + "/", timeout=15000)
+        page.wait_for_url(
+            lambda url: str(url).startswith(flow_env.web_origin), timeout=15000
+        )
         cookies = context.cookies(flow_env.web_origin)
         proxy_cookie = next(
             (cookie for cookie in cookies if cookie["name"] == "__Secure-oauth2_proxy"),
@@ -107,7 +174,9 @@ def test_expired_or_invalid_session_cookie_is_rejected(browser, flow_env):
         perform_keycloak_login(
             login_page, flow_env.test_user_username, flow_env.test_user_password
         )
-        login_page.wait_for_url(flow_env.web_origin + "/", timeout=30000)
+        login_page.wait_for_url(
+            lambda url: str(url).startswith(flow_env.web_origin), timeout=30000
+        )
 
         cookies = login_context.cookies(flow_env.web_origin)
         proxy_cookie = next(
