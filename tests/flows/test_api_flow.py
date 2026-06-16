@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from tests.flows.flow_helpers import ensure_no_auth_redirect_status
+from tests.flows.flow_helpers import (
+    ensure_no_auth_redirect_status,
+    navigate_to_login,
+    perform_keycloak_login,
+)
 
 
 def test_public_health_endpoint_returns_success_without_auth(http_client, flow_env):
@@ -50,6 +54,95 @@ def test_spoofed_identity_header_x_auth_subject_is_stripped(http_client, flow_en
     )
     assert res.status_code != 200
     ensure_no_auth_redirect_status(res.status_code)
+
+
+def test_spoofed_identity_header_x_auth_request_is_stripped(http_client, flow_env):
+    res = http_client.get(
+        f"{flow_env.api_base}/users/me",
+        headers={
+            "X-Auth-Request-User": "attacker",
+            "X-Auth-Request-Email": "attacker@evil.com",
+            "X-Auth-Request-Groups": "/tasks-users",
+            "X-Auth-Request-Preferred-Username": "attacker",
+        },
+    )
+    assert res.status_code != 200
+    ensure_no_auth_redirect_status(res.status_code)
+
+
+def test_authenticated_user_with_tasks_users_group_can_access_api(
+    browser, flow_env
+):
+    context = browser.new_context(ignore_https_errors=True)
+    try:
+        page = context.new_page()
+        navigate_to_login(page, flow_env.web_origin, flow_env)
+        perform_keycloak_login(
+            page, flow_env.test_user_username, flow_env.test_user_password
+        )
+        page.wait_for_url(flow_env.web_origin + "/", timeout=30000)
+
+        api_response = context.request.get(f"{flow_env.api_base}/users/me")
+        assert api_response.status == 200, (
+            f"Authenticated /tasks-users member should access /users/me, got {api_response.status}"
+        )
+        body = api_response.json()
+        assert body.get("name") == flow_env.test_user_username, (
+            f"Expected name={flow_env.test_user_username}, got {body.get('name')}"
+        )
+        assert body.get("email", "").endswith("@example.com"), (
+            f"Expected email ending in @example.com, got {body.get('email')}"
+        )
+    finally:
+        context.close()
+
+
+def test_authenticated_user_with_tasks_users_group_sees_correct_identity_in_api(
+    browser, flow_env
+):
+    context = browser.new_context(ignore_https_errors=True)
+    try:
+        page = context.new_page()
+        navigate_to_login(page, flow_env.web_origin, flow_env)
+        perform_keycloak_login(
+            page, flow_env.test_user_username, flow_env.test_user_password
+        )
+        page.wait_for_url(flow_env.web_origin + "/", timeout=30000)
+
+        api_response = context.request.get(f"{flow_env.api_base}/users/me")
+        assert api_response.status == 200, (
+            f"Expected 200 from /users/me, got {api_response.status}"
+        )
+        body = api_response.json()
+        assert "id" in body, f"Response missing 'id' field: {body}"
+        assert body["name"] == flow_env.test_user_username, (
+            f"Identity header mismatch: expected name={flow_env.test_user_username}, got {body.get('name')}"
+        )
+        assert body["email"], f"Email should be populated, got: {body.get('email')}"
+    finally:
+        context.close()
+
+
+def test_authenticated_user_without_tasks_users_group_is_denied_api_access(
+    browser, flow_env
+):
+    context = browser.new_context(ignore_https_errors=True)
+    try:
+        page = context.new_page()
+        navigate_to_login(page, flow_env.web_origin, flow_env)
+        perform_keycloak_login(
+            page, flow_env.test_denied_user_username, flow_env.test_denied_user_password
+        )
+        page.wait_for_url(
+            lambda url: str(url).startswith(flow_env.web_origin), timeout=15000
+        )
+
+        api_response = context.request.get(f"{flow_env.api_base}/users/me")
+        assert api_response.status == 403, (
+            f"User without /tasks-users should be denied API access, got {api_response.status}"
+        )
+    finally:
+        context.close()
 
 
 def test_inbound_authorization_header_is_stripped_on_normal_browser_api(
