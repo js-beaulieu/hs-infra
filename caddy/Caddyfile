@@ -133,7 +133,17 @@ auth.{$DOMAIN} {
 watchtower.{$DOMAIN} {
 	{$CADDY_TLS_DIRECTIVE}
 
-	reverse_proxy watchtower:8080
+	@update {
+		method POST
+		path /v1/update
+	}
+	handle @update {
+		reverse_proxy watchtower:8080
+	}
+
+	handle {
+		respond 404
+	}
 }
 
 import tasks.caddy

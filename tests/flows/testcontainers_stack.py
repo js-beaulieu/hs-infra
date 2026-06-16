@@ -89,7 +89,7 @@ def ensure_tls_certs() -> None:
     )
     san_ext = CERTS_DIR / "san.ext"
     san_ext.write_text(
-        "subjectAltName=DNS:localhost,DNS:home-stack.localhost,DNS:auth.home-stack.localhost,DNS:tasks.home-stack.localhost,DNS:api.home-stack.localhost\n",
+        "subjectAltName=DNS:localhost,DNS:home-stack.localhost,DNS:auth.home-stack.localhost,DNS:tasks.home-stack.localhost,DNS:api.home-stack.localhost,DNS:watchtower.home-stack.localhost\n",
         encoding="utf-8",
     )
     subprocess.run(
@@ -139,6 +139,7 @@ def docker_compose(env_file: Path) -> DockerCompose:
             "docker/compose.yml",
             "docker/core.yml",
             "docker/tasks.yml",
+            "docker/watchtower.yml",
             "docker/test.yml",
         ],
         build=True,
@@ -160,6 +161,8 @@ def print_compose_diagnostics(project_name: str, env_file: Path) -> None:
         str(REPO_ROOT / "docker/core.yml"),
         "-f",
         str(REPO_ROOT / "docker/tasks.yml"),
+        "-f",
+        str(REPO_ROOT / "docker/watchtower.yml"),
         "-f",
         str(REPO_ROOT / "docker/test.yml"),
     ]
@@ -216,6 +219,7 @@ def start_testcontainers_stack() -> None:
     api_origin = f"{oauth2_origin}/tasks"
     auth_origin = f"https://auth.{domain}:{https_port}"
     mcp_resource = f"{api_origin}/mcp"
+    watchtower_origin = f"https://watchtower.{domain}:{https_port}"
     keycloak_admin_username = os.environ.get("KEYCLOAK_ADMIN_USERNAME", "admin")
     keycloak_admin_password = os.environ.get(
         "KEYCLOAK_ADMIN_PASSWORD", f"admin-{secrets.token_hex(6)}"
@@ -256,6 +260,7 @@ def start_testcontainers_stack() -> None:
         "TASKS_DB_NAME": "tasks",
         "TASKS_DB_USER": "tasks",
         "TASKS_DB_PASSWORD": f"tasks-{secrets.token_hex(12)}",
+        "WATCHTOWER_API_TOKEN": secrets.token_urlsafe(32),
     }
 
     print(
@@ -271,6 +276,7 @@ def start_testcontainers_stack() -> None:
         wait_for_url(f"{api_origin}/health")
         wait_for_url(f"{api_origin}/users/me")
         wait_for_url(f"{web_origin}/")
+        wait_for_url(f"{watchtower_origin}/")
     except Exception:
         print_compose_diagnostics(project_name, compose_env_file)
         try:
@@ -301,6 +307,8 @@ def start_testcontainers_stack() -> None:
             "MCP_TOKEN_WRONG_AUD": os.environ.get("MCP_TOKEN_WRONG_AUD", ""),
             "MCP_TOKEN_EXPIRED": os.environ.get("MCP_TOKEN_EXPIRED", ""),
             "MCP_TOKEN_MISSING_GROUP": os.environ.get("MCP_TOKEN_MISSING_GROUP", ""),
+            "WATCHTOWER_ORIGIN": watchtower_origin,
+            "WATCHTOWER_API_TOKEN": compose_env["WATCHTOWER_API_TOKEN"],
         },
     )
 
