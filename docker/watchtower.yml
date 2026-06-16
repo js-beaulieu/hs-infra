@@ -10,7 +10,6 @@ services:
       WATCHTOWER_HTTP_API_UPDATE: "true"
       WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_API_TOKEN}
       WATCHTOWER_HTTP_API_PERIODIC_POLLS: "false"
-      WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
     healthcheck:
       test: ["CMD", "/watchtower", "--health-check"]

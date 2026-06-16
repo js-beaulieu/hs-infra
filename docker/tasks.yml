@@ -62,8 +62,6 @@ services:
     image: ghcr.io/js-beaulieu/tasks-web:latest
     restart: unless-stopped
     read_only: true
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
     cap_drop:
       - ALL
     labels:
