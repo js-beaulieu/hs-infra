@@ -17,6 +17,7 @@ from testcontainers.compose import DockerCompose
 FLOW_DIR = Path(__file__).resolve().parent
 REPO_ROOT = FLOW_DIR.parents[1]
 STATE_PATH = FLOW_DIR / ".testcontainers-state.json"
+CERTS_DIR = REPO_ROOT / "certs"
 
 
 @contextmanager
@@ -42,6 +43,76 @@ def write_env_file(path: Path, values: dict[str, str]) -> None:
     path.write_text(
         "\n".join(f"{key}={value}" for key, value in values.items()) + "\n",
         encoding="utf-8",
+    )
+
+
+def ensure_tls_certs() -> None:
+    if (CERTS_DIR / "rootCA.pem").exists():
+        return
+    CERTS_DIR.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(CERTS_DIR / "rootCA.key"),
+            "-out",
+            str(CERTS_DIR / "rootCA.pem"),
+            "-days",
+            "1",
+            "-subj",
+            "/CN=Test Root CA",
+            "-noenc",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(CERTS_DIR / "local-key.pem"),
+            "-out",
+            str(CERTS_DIR / "local.csr"),
+            "-subj",
+            "/CN=localhost",
+            "-noenc",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    san_ext = CERTS_DIR / "san.ext"
+    san_ext.write_text(
+        "subjectAltName=DNS:localhost,DNS:home-stack.localhost,DNS:auth.home-stack.localhost,DNS:tasks.home-stack.localhost,DNS:api.home-stack.localhost\n",
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [
+            "openssl",
+            "x509",
+            "-req",
+            "-in",
+            str(CERTS_DIR / "local.csr"),
+            "-CA",
+            str(CERTS_DIR / "rootCA.pem"),
+            "-CAkey",
+            str(CERTS_DIR / "rootCA.key"),
+            "-CAcreateserial",
+            "-out",
+            str(CERTS_DIR / "local.pem"),
+            "-days",
+            "1",
+            "-extfile",
+            str(san_ext),
+        ],
+        check=True,
+        capture_output=True,
     )
 
 
@@ -120,6 +191,8 @@ def compose_env_file_from_state(state: dict) -> Path | None:
 
 
 def start_testcontainers_stack() -> None:
+    ensure_tls_certs()
+
     if STATE_PATH.exists():
         previous = json.loads(STATE_PATH.read_text(encoding="utf-8"))
         previous_compose_env_file = compose_env_file_from_state(previous)
