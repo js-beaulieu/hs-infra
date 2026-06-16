@@ -3,7 +3,7 @@
 ## Architecture
 
 - All Docker Compose config lives in `docker/` — not the repo root.
-- `docker/compose.yml` is the thin entrypoint; it includes `docker/core.yml` (shared infra) and `docker/tasks.yml` (Tasks app services).
+- `docker/compose.yml` holds only the project name; compose files are assembled via `-f` flags (see `COMPOSE_FILES` in `Taskfile.yml`). The component files are `docker/core.yml` (shared infra), `docker/tasks.yml` (Tasks app services), and `docker/watchtower.yml` (automated updates).
 - Caddy is the only service publishing host ports. Every other service is private-Docker-network only.
 - Postgres is shared by Keycloak and tasks-api via separate databases, each on its own Docker network.
 - Auth stays at the gateway boundary: APIs consume trusted identity headers (`X-Auth-*`) injected by Caddy, oauth2-proxy, or agentgateway — never write JWT verification into individual APIs.

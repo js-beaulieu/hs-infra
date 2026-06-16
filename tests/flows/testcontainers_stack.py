@@ -64,7 +64,12 @@ def wait_for_url(url: str, timeout_seconds: int = 120) -> None:
 def docker_compose(env_file: Path) -> DockerCompose:
     return DockerCompose(
         REPO_ROOT,
-        compose_file_name=["docker/compose.yml", "docker/test.yml"],
+        compose_file_name=[
+            "docker/compose.yml",
+            "docker/core.yml",
+            "docker/tasks.yml",
+            "docker/test.yml",
+        ],
         build=True,
         wait=True,
         env_file=str(env_file),
@@ -80,6 +85,10 @@ def print_compose_diagnostics(project_name: str, env_file: Path) -> None:
         str(env_file),
         "-f",
         str(REPO_ROOT / "docker/compose.yml"),
+        "-f",
+        str(REPO_ROOT / "docker/core.yml"),
+        "-f",
+        str(REPO_ROOT / "docker/tasks.yml"),
         "-f",
         str(REPO_ROOT / "docker/test.yml"),
     ]

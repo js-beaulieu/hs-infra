@@ -9,7 +9,11 @@ home_stack_firewall_web_exposure: direct
 home_stack_cloudflare_cidrs: []
 home_stack_firewall_extra_web_cidrs: []
 home_stack_app_dir: /opt/home-stack
-home_stack_compose_file: docker/compose.yml
+home_stack_compose_files:
+  - docker/compose.yml
+  - docker/core.yml
+  - docker/tasks.yml
+  - docker/watchtower.yml
 home_stack_env_file: /home/vagrant/home-stack.env
 home_stack_source_mode: local_copy
 home_stack_domain: home-stack.localhost

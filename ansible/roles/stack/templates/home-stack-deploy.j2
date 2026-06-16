@@ -26,6 +26,7 @@ set -a
 . {{ home_stack_env_file | quote }}
 set +a
 
-/usr/bin/docker compose -f {{ home_stack_compose_file | quote }} config --quiet
-/usr/bin/docker compose -f {{ home_stack_compose_file | quote }} pull
-/usr/bin/docker compose -f {{ home_stack_compose_file | quote }} up -d --build --remove-orphans
+{% set compose_flags = home_stack_compose_files | map('regex_replace', '^(.*)$', '-f \\1') | join(' ') %}
+/usr/bin/docker compose {{ compose_flags }} config --quiet
+/usr/bin/docker compose {{ compose_flags }} pull
+/usr/bin/docker compose {{ compose_flags }} up -d --build --remove-orphans

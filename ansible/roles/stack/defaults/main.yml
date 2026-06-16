@@ -1,7 +1,11 @@
 ---
 home_stack_deploy_user: debian
 home_stack_app_dir: /opt/home-stack
-home_stack_compose_file: docker/compose.yml
+home_stack_compose_files:
+  - docker/compose.yml
+  - docker/core.yml
+  - docker/tasks.yml
+  - docker/watchtower.yml
 home_stack_env_file: /home/{{ home_stack_deploy_user }}/home-stack.env
 home_stack_release_file: /home/{{ home_stack_deploy_user }}/home-stack.release
 home_stack_source_mode: git

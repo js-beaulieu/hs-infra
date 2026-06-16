@@ -2,6 +2,7 @@ version: "3"
 
 vars:
   STACK_PROJECT_NAME: home-stack
+  COMPOSE_FILES: -f docker/compose.yml -f docker/core.yml -f docker/tasks.yml -f docker/watchtower.yml
   VM_NAME: home-stack-local
   VM_STATE_DIR: .local/vm
   VM_HTTP_PORT: 8080
@@ -12,12 +13,12 @@ tasks:
   start:
     desc: Start the stack
     cmds:
-      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml up -d --build
+      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} {{.COMPOSE_FILES}} up -d --build
 
   stop:
     desc: Stop the stack
     cmds:
-      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml down
+      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} {{.COMPOSE_FILES}} down
 
   vm:up:
     desc: Create/start the disposable local Vagrant/libvirt VM
@@ -179,7 +180,7 @@ tasks:
   lint:compose:
     desc: Validate Docker Compose config
     cmds:
-      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} -f docker/compose.yml config --quiet
+      - docker compose --project-name {{.STACK_PROJECT_NAME}} --env-file {{.STACK_ENV_FILE | default ".env"}} {{.COMPOSE_FILES}} config --quiet
 
   lint:caddy:
     desc: Validate Caddy config
