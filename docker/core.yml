@@ -11,6 +11,8 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     read_only: true
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     tmpfs:
       - /tmp
     ports:

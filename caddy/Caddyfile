@@ -131,7 +131,7 @@ auth.{$DOMAIN} {
 }
 
 watchtower.{$DOMAIN} {
-	{$CADDY_TLS_DIRECTIVE}
+	import {$CADDY_TLS_INCLUDE}
 
 	@update {
 		method POST
