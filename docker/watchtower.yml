@@ -6,6 +6,7 @@ services:
     tmpfs:
       - /tmp
     environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_HTTP_API_UPDATE: "true"
       WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_API_TOKEN}
       WATCHTOWER_HTTP_API_PERIODIC_POLLS: "false"
