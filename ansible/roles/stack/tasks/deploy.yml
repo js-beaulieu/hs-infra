@@ -52,6 +52,7 @@
     owner: root
     group: root
     mode: '0750'
+  become: true
 - name: Render production environment file
   ansible.builtin.template:
     src: env.j2
