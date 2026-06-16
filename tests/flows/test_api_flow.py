@@ -70,9 +70,7 @@ def test_spoofed_identity_header_x_auth_request_is_stripped(http_client, flow_en
     ensure_no_auth_redirect_status(res.status_code)
 
 
-def test_authenticated_user_with_tasks_users_group_can_access_api(
-    browser, flow_env
-):
+def test_authenticated_user_with_tasks_users_group_can_access_api(browser, flow_env):
     context = browser.new_context(ignore_https_errors=True)
     try:
         page = context.new_page()
