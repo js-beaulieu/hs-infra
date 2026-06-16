@@ -20,10 +20,11 @@ Auth stays at the gateway boundary. Private APIs consume trusted identity header
 
 ## Compose Layout
 
-`docker/compose.yml` is the default entrypoint and includes the shared platform file plus the Tasks app file:
+`docker/compose.yml` is the project name entrypoint; compose files are assembled via `-f` flags:
 
 - `docker/core.yml`: Caddy, Keycloak, oauth2-proxy, Redis, Postgres, agentgateway, and shared networks/volumes.
 - `docker/tasks.yml`: Tasks services plus Tasks-specific network attachments for Caddy, agentgateway, and Postgres.
+- `docker/watchtower.yml`: Watchtower for automated container updates.
 - `caddy/Caddyfile`: shared Caddy options/snippets and Keycloak routes.
 - `caddy/tasks.caddy`: Tasks web/API/MCP routes.
 

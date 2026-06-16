@@ -42,6 +42,8 @@ services:
   tasks-api:
     <<: *security_defaults
     image: ghcr.io/js-beaulieu/tasks-api:latest
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
     environment:
       PG_CONNECTION_STRING: "host=postgres port=5432 user=${TASKS_DB_USER} password=${TASKS_DB_PASSWORD} dbname=${TASKS_DB_NAME} sslmode=disable"

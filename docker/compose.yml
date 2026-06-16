@@ -1,5 +1,1 @@
 name: home-stack
-
-include:
-  - core.yml
-  - tasks.yml

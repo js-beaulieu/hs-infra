@@ -342,7 +342,7 @@ Optional files:
 - `keycloak/realm-export.json` if using import/export.
 - `tasks-web/` minimal static placeholder only if using a container frontend instead of CDN/static origin.
 
-`docker/compose.yml` is a thin default entrypoint that includes shared platform and app-specific Compose files. Keep shared infrastructure in `docker/core.yml`; keep Tasks services and Tasks-specific shared-service network attachments in `docker/tasks.yml`. Future app files should follow the same pattern.
+`docker/compose.yml` holds only the project name; compose files are assembled via `-f` flags (see `COMPOSE_FILES` in `Taskfile.yml`). Keep shared infrastructure in `docker/core.yml`; keep Tasks services and Tasks-specific shared-service network attachments in `docker/tasks.yml`. Future app files should follow the same pattern.
 
 Required services:
 
@@ -465,13 +465,13 @@ End-to-end flow verification must prove the three primary paths work and stay is
 
 - Confirm non-admin clients through Cloudflare cannot access admin paths even though their direct peer is Cloudflare.
 
-- `docker compose --env-file .env -f docker/compose.yml config` validates Compose syntax.
+- `task lint` validates Compose syntax (uses all `-f` flags from `COMPOSE_FILES`).
 
 - Caddy config validation passes if the Caddy image/tooling is available.
 
 - oauth2-proxy config validation passes with `--config-test` if available.
 
-- `docker compose -f docker/compose.yml up` smoke test passes if allowed in the environment.
+- `task start` smoke test passes if allowed in the environment.
 
 - `curl -i https://api.${DOMAIN}/tasks/health` returns public health response.
 

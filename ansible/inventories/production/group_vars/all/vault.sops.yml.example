@@ -14,6 +14,7 @@ home_stack_keycloak_db_password: replace-with-real-secret
 home_stack_oauth2_proxy_client_secret: replace-with-real-secret
 home_stack_oauth2_proxy_cookie_secret: replace-with-real-secret
 home_stack_tasks_db_password: replace-with-real-secret
+home_stack_watchtower_api_token: replace-with-real-secret
 
 # Optional connection/site overrides. Defaults are normally enough.
 # ansible_port: 22

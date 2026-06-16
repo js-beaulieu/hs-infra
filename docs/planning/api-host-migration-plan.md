@@ -120,7 +120,7 @@ Update `oauth2-proxy/oauth2-proxy.cfg` only if needed.
 - Do not set `user_id_claim`.
 - Do not set `prefer_email_to_user`.
 
-Update `docker/compose.yml` oauth2-proxy environment:
+Update `docker/core.yml` oauth2-proxy environment:
 
 - `OAUTH2_PROXY_REDIRECT_URL=https://api.${DOMAIN}/oauth2/callback`.
 - `OAUTH2_PROXY_WHITELIST_DOMAINS` includes the frontend return host and API host as required by oauth2-proxy redirect validation.
@@ -147,7 +147,7 @@ Update `agentgateway/config.yaml.tmpl`.
 - Keep backend target as `http://tasks-api:8080/mcp`.
 - Treat `/tasks/.well-known/oauth-authorization-server/mcp` and `/tasks/.well-known/oauth-authorization-server/mcp/client-registration` as optional agentgateway AS-proxy/DCR compatibility routes, not RFC-required protected-resource metadata.
 
-Update `docker/compose.yml` agentgateway/keycloak bootstrap environment:
+Update `docker/core.yml` agentgateway/keycloak bootstrap environment:
 
 - `MCP_RESOURCE_URI=https://api.${DOMAIN}/tasks/mcp`.
 
@@ -184,7 +184,7 @@ Update `tasks-web/index.html` if it remains in the repo.
 
 Run this loop after Phase 2.
 
-1. Run `docker compose --env-file .env -f docker/compose.yml config`.
+1. Run `task lint`.
 1. Run Caddy validation if the container/tooling is available.
 1. Start or restart the stack.
 1. Run `scripts/run-flow-tests.sh`.
