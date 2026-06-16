@@ -1,6 +1,6 @@
 services:
   watchtower:
-    image: containrrr/watchtower:latest
+    image: nickfedor/watchtower:1.18.1
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -11,6 +11,11 @@ services:
       WATCHTOWER_HTTP_API: "true"
       WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_API_TOKEN}
       WATCHTOWER_HTTP_API_PERIODIC_POLLS: "false"
+    healthcheck:
+      test: ["CMD", "/watchtower", "--health-check"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
