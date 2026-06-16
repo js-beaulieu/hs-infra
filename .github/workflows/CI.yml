@@ -46,3 +46,5 @@ jobs:
 
       - name: Run isolated flow tests
         run: task test
+        env:
+          PYTHONUNBUFFERED: "1"

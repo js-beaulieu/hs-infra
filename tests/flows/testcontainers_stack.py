@@ -191,7 +191,9 @@ def start_testcontainers_stack() -> None:
     write_env_file(compose_env_file, compose_env)
     try:
         with compose_environment(project_name):
+            print("Starting Docker Compose services...")
             docker_compose(compose_env_file).start()
+            print("Docker Compose services started, waiting for health endpoints...")
 
         wait_for_url(f"{api_origin}/health")
         wait_for_url(f"{api_origin}/users/me")
