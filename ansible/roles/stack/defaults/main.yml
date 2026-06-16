@@ -30,6 +30,7 @@ home_stack_keycloak_db_user: keycloak
 home_stack_oauth2_proxy_provider_ca_files: ''
 home_stack_oauth2_proxy_whitelist_domains: .{{ home_stack_domain }}
 home_stack_agentgateway_ssl_cert_file: ''
+home_stack_watchtower_api_token: ''
 home_stack_tasks_db_name: tasks
 home_stack_tasks_db_user: tasks
 home_stack_mcp_access_token_lifespan_seconds: 31536000

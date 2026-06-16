@@ -24,7 +24,7 @@ Auth stays at the gateway boundary. Private APIs consume trusted identity header
 
 - `docker/core.yml`: Caddy, Keycloak, oauth2-proxy, Redis, Postgres, agentgateway, and shared networks/volumes.
 - `docker/tasks.yml`: Tasks services plus Tasks-specific network attachments for Caddy, agentgateway, and Postgres.
-- `docker/watchtower.yml`: Watchtower for automated container updates.
+- `docker/watchtower.yml`: Watchtower for automated container updates, exposed via Caddy at `watchtower.${DOMAIN}` (POST-only `/v1/update` endpoint).
 - `caddy/Caddyfile`: shared Caddy options/snippets and Keycloak routes.
 - `caddy/tasks.caddy`: Tasks web/API/MCP routes.
 
