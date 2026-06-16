@@ -29,7 +29,8 @@ home_stack_public_oauth2_origin: "https://api.{{ home_stack_domain }}:{{ home_st
 home_stack_public_api_origin: "https://api.{{ home_stack_domain }}:{{ home_stack_caddy_https_port\
   \ }}/tasks"
 home_stack_mcp_resource_uri: "{{ home_stack_public_api_origin }}/mcp"
-home_stack_caddy_tls_directive: "tls /certs/local.pem /certs/local-key.pem"
+home_stack_caddy_tls_include: tls_local.caddy
+home_stack_cloudflare_api_token: local-only-dummy-token
 home_stack_caddy_trusted_proxies: [127.0.0.1/32, "::1/128"]
 home_stack_keycloak_admin_remote_ip_ranges: [private_ranges]
 home_stack_keycloak_admin_client_ip_ranges: "{{ home_stack_admin_cidrs }}"

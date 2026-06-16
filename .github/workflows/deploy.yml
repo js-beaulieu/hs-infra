@@ -10,7 +10,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build-caddy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      changed: ${{ steps.filter.outputs.caddy }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      - name: Check if Caddy image changed
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            caddy:
+              - caddy/Dockerfile
+
+      - name: Set up Docker Buildx
+        if: steps.filter.outputs.caddy == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.filter.outputs.caddy == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        if: steps.filter.outputs.caddy == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: caddy
+          push: true
+          tags: ghcr.io/js-beaulieu/caddy-cloudflare:2-alpine
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
+    needs: build-caddy
     runs-on: ubuntu-latest
     environment: production
     steps:

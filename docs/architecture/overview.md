@@ -2,7 +2,7 @@
 
 ## Services
 
-- `caddy`: only public entrypoint, publishes `80` and `443`.
+- `caddy`: only public entrypoint, publishes `80` and `443`. Uses DNS-01 ACME via the Cloudflare DNS plugin for TLS certificates, which works behind the Cloudflare proxy.
 - `keycloak`: IdP at `https://auth.${DOMAIN}/realms/home-stack`.
 - `postgres`: shared private database for Keycloak and tasks-api.
 - `oauth2-proxy`: browser SSO/session checks for app hosts and API hosts sharing a parent-domain session cookie.
@@ -22,7 +22,7 @@ Auth stays at the gateway boundary. Private APIs consume trusted identity header
 
 `docker/compose.yml` is the project name entrypoint; compose files are assembled via `-f` flags:
 
-- `docker/core.yml`: Caddy, Keycloak, oauth2-proxy, Redis, Postgres, agentgateway, and shared networks/volumes.
+- `docker/core.yml`: Caddy (custom `ghcr.io/js-beaulieu/caddy-cloudflare:2-alpine` image with `caddy-dns/cloudflare`), Keycloak, oauth2-proxy, Redis, Postgres, agentgateway, and shared networks/volumes.
 - `docker/tasks.yml`: Tasks services plus Tasks-specific network attachments for Caddy, agentgateway, and Postgres.
 - `docker/watchtower.yml`: Watchtower for automated container updates, exposed via Caddy at `watchtower.${DOMAIN}` (POST-only `/v1/update` endpoint).
 - `caddy/Caddyfile`: shared Caddy options/snippets and Keycloak routes.

@@ -86,7 +86,7 @@
 }
 
 auth.{$DOMAIN} {
-	{$CADDY_TLS_DIRECTIVE}
+	import {$CADDY_TLS_INCLUDE}
 
 	import strip_identity_headers
 

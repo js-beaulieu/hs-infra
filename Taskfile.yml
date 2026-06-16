@@ -186,16 +186,19 @@ tasks:
     desc: Validate Caddy config
     cmds:
       - |
+        docker build -t caddy-cloudflare:2-alpine caddy
         docker run --rm \
           -v $PWD/caddy:/etc/caddy:ro \
           -e ACME_EMAIL=test@localhost \
+          -e CADDY_TLS_INCLUDE="tls_internal.caddy" \
+          -e CF_API_TOKEN=lint-only-dummy-token \
           -e CADDY_TRUSTED_PROXIES="127.0.0.1/32" \
           -e DOMAIN=localhost \
           -e PUBLIC_WEB_ORIGIN=https://tasks.localhost \
           -e PUBLIC_OAUTH2_ORIGIN=https://api.localhost \
           -e KEYCLOAK_ADMIN_REMOTE_IP_RANGES="private_ranges" \
           -e KEYCLOAK_ADMIN_CLIENT_IP_RANGES="private_ranges" \
-          caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+          caddy-cloudflare:2-alpine caddy validate --config /etc/caddy/Caddyfile
 
   lint:oauth2-proxy:
     desc: Validate oauth2-proxy config

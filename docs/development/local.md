@@ -31,7 +31,7 @@ The local `.env` values intentionally do not use Cloudflare as a trusted proxy. 
 
 ```dotenv
 DOMAIN=home-stack.localhost
-CADDY_TLS_DIRECTIVE="tls /certs/local.pem /certs/local-key.pem"
+CADDY_TLS_INCLUDE="tls_local.caddy"
 CADDY_TRUSTED_PROXIES="127.0.0.1/32 ::1/128"
 KEYCLOAK_ADMIN_REMOTE_IP_RANGES="private_ranges"
 KEYCLOAK_ADMIN_CLIENT_IP_RANGES="private_ranges"
