@@ -4,6 +4,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 40
+  tasks-web:
+    build:
+      context: ../tasks-web
+    image: ghcr.io/js-beaulieu/tasks-web:latest
+    pull_policy: never
   watchtower:
     healthcheck:
       interval: 5s
