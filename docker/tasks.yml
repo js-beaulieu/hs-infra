@@ -59,24 +59,13 @@ services:
 
   tasks-web:
     <<: *security_defaults
-    image: nginx:1-alpine
+    image: ghcr.io/js-beaulieu/tasks-web:latest
     restart: unless-stopped
     read_only: true
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
     cap_drop:
       - ALL
-    cap_add:
-      - CHOWN
-      - NET_BIND_SERVICE
-      - SETGID
-      - SETUID
-    tmpfs:
-      - /var/cache/nginx
-      - /var/run
-      - /var/log/nginx
-    volumes:
-      - ../tasks-web:/usr/share/nginx/html:ro
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     networks:
       tasks-web:
 
