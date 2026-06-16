@@ -71,7 +71,7 @@ def docker_compose(env_file: Path) -> DockerCompose:
             "docker/test.yml",
         ],
         build=True,
-        wait=False,
+        wait=True,
         env_file=str(env_file),
     )
 

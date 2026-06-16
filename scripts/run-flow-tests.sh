@@ -30,7 +30,7 @@ fi
 
 PYTEST_ARGS=(--group dev pytest)
 if [[ -n "${CI:-}" ]]; then
-  PYTEST_ARGS+=(--reruns 2 -v)
+  PYTEST_ARGS+=(-v)
 fi
 PYTEST_ARGS+=(--flow-env "${ENV_FILE_ABS}" tests/flows "$@")
 
