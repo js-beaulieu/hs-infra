@@ -79,6 +79,8 @@ class FlowEnv:
     mcp_token_missing_group: str
     keycloak_admin_username: str
     keycloak_admin_password: str
+    watchtower_origin: str
+    watchtower_api_token: str
 
     @classmethod
     def load(cls) -> "FlowEnv":
@@ -121,4 +123,6 @@ class FlowEnv:
             or generated_tokens.get("MCP_TOKEN_MISSING_GROUP", ""),
             keycloak_admin_username=os.environ.get("KEYCLOAK_ADMIN_USERNAME", ""),
             keycloak_admin_password=os.environ.get("KEYCLOAK_ADMIN_PASSWORD", ""),
+            watchtower_origin=os.environ.get("WATCHTOWER_ORIGIN", ""),
+            watchtower_api_token=os.environ.get("WATCHTOWER_API_TOKEN", ""),
         )
