@@ -21,3 +21,6 @@ tests/flows/.testcontainers-*.env
 tests/flows/.testcontainers-state.json
 .vault-pass
 ansible/inventories/production/group_vars/all/vault.yml
+
+# Local tool config
+opencode.json

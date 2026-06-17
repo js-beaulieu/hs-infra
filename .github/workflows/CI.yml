@@ -10,13 +10,99 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  changes:
     if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      ansible: ${{ steps.filter.outputs.ansible }}
+      tests: ${{ steps.filter.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            code:
+              - '**/*.py'
+              - '**/*.sh'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'Taskfile.yml'
+              - 'docker/**'
+              - 'caddy/**'
+              - 'keycloak/**'
+              - 'oauth2-proxy/**'
+              - 'agentgateway/**'
+              - 'tests/**'
+              - 'scripts/**'
+              - '.github/**'
+            ansible:
+              - 'ansible/**'
+            tests:
+              - 'tests/**'
+              - 'docker/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+
+  format-and-lint:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install project tooling
+        run: uv sync --locked
+
+      - name: Run formatting checks
+        run: task format
+
+      - name: Run stack config validations
+        run: task lint STACK_ENV_FILE=.env.example
+
+  ansible:
+    needs: changes
+    if: needs.changes.outputs.ansible == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install project tooling
+        run: uv sync --locked
+
+      - name: Install Ansible collections
+        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Run Ansible syntax checks
+        run: |
+          uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/bootstrap.yml --syntax-check
+          uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/site.yml --syntax-check
+          uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/deploy.yml --syntax-check
+
+      - name: Run ansible-lint
+        run: uv run ansible-lint ansible/playbooks
+
+  flow-tests:
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -31,24 +117,6 @@ jobs:
 
       - name: Install Playwright browser
         run: uv run --group dev playwright install --with-deps chromium
-
-      - name: Install Ansible collections
-        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
-
-      - name: Run formatting checks
-        run: task format
-
-      - name: Run stack config validations
-        run: task lint STACK_ENV_FILE=.env.example
-
-      - name: Run Ansible syntax checks
-        run: |
-          uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/bootstrap.yml --syntax-check
-          uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/site.yml --syntax-check
-          uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/deploy.yml --syntax-check
-
-      - name: Run ansible-lint
-        run: uv run ansible-lint ansible/playbooks
 
       - name: Run isolated flow tests
         run: task test

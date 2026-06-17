@@ -1,5 +1,5 @@
 [project]
-name = "home-stack"
+name = "hs-infra"
 version = "1.0.0"
 description = "Homelab auth gateway stack tests and tooling"
 requires-python = ">=3.14,<3.15"

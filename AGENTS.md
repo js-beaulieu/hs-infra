@@ -7,7 +7,7 @@
 - Caddy is the only service publishing host ports. Every other service is private-Docker-network only.
 - Postgres is shared by Keycloak and tasks-api via separate databases, each on its own Docker network.
 - Auth stays at the gateway boundary: APIs consume trusted identity headers (`X-Auth-*`) injected by Caddy, oauth2-proxy, or agentgateway — never write JWT verification into individual APIs.
-- Human-facing docs live in `docs/`; keep `README.md` as a concise entrypoint and keep agent-specific instructions in this file.
+- Long-form architecture documentation is in Basic Memory (home-stack project, `architecture/` directory); keep `README.md` as a concise entrypoint and keep agent-specific instructions in this file.
 
 ## Commands
 
@@ -59,9 +59,9 @@ task sops:encrypt   # encrypt vault.sops.yml in place
 
 ## Documentation Invariants
 
-When editing workflow files, role defaults, or deployment docs, verify these mappings stay consistent:
+When editing workflow files or role defaults, verify these mappings stay consistent:
 
-- Secrets and vars listed in `docs/deployment/ansible.md` must match exactly what `.github/workflows/deploy.yml` references via `${{ secrets.* }}` and `${{ vars.* }}`.
+- Secrets and vars referenced in `.github/workflows/deploy.yml` via `${{ secrets.* }}` and `${{ vars.* }}` must be documented in the Basic Memory `architecture/Ansible Host Provisioning` note.
 - Role default variables referenced in docs must still exist in `ansible/roles/*/defaults/main.yml`.
 - Inventory env lookups in `ansible/inventories/production/hosts.github-actions.yml` must have corresponding vars/secrets in the workflow, or a fallback expression.
 - If a workflow env var has a fallback (like `GIT_REPO` defaulting to the current repo URL), the docs must note it as optional with its fallback.
