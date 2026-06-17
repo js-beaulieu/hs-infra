@@ -10,15 +10,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  changes:
+  ci:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-      ansible: ${{ steps.filter.outputs.ansible }}
-      tests: ${{ steps.filter.outputs.tests }}
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Detect changed paths
         id: filter
@@ -47,78 +45,49 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
 
-  format-and-lint:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
       - name: Install uv
+        if: steps.filter.outputs.code == 'true' || steps.filter.outputs.ansible == 'true' || steps.filter.outputs.tests == 'true'
         uses: astral-sh/setup-uv@v6
 
       - name: Install Task
+        if: steps.filter.outputs.code == 'true' || steps.filter.outputs.tests == 'true'
         uses: arduino/setup-task@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install project tooling
+        if: steps.filter.outputs.code == 'true' || steps.filter.outputs.ansible == 'true' || steps.filter.outputs.tests == 'true'
         run: uv sync --locked
 
+      - name: Install Playwright browser
+        if: steps.filter.outputs.tests == 'true'
+        run: uv run --group dev playwright install --with-deps chromium
+
+      - name: Install Ansible collections
+        if: steps.filter.outputs.ansible == 'true'
+        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
+
       - name: Run formatting checks
+        if: steps.filter.outputs.code == 'true'
         run: task format
 
       - name: Run stack config validations
+        if: steps.filter.outputs.code == 'true'
         run: task lint STACK_ENV_FILE=.env.example
 
-  ansible:
-    needs: changes
-    if: needs.changes.outputs.ansible == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-
-      - name: Install project tooling
-        run: uv sync --locked
-
-      - name: Install Ansible collections
-        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
-
       - name: Run Ansible syntax checks
+        if: steps.filter.outputs.ansible == 'true'
         run: |
           uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/bootstrap.yml --syntax-check
           uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/site.yml --syntax-check
           uv run ansible-playbook -i ansible/inventories/ci/hosts.yml ansible/playbooks/deploy.yml --syntax-check
 
       - name: Run ansible-lint
+        if: steps.filter.outputs.ansible == 'true'
         run: uv run ansible-lint ansible/playbooks
 
-  flow-tests:
-    needs: changes
-    if: needs.changes.outputs.tests == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install project tooling
-        run: uv sync --locked
-
-      - name: Install Playwright browser
-        run: uv run --group dev playwright install --with-deps chromium
-
       - name: Run isolated flow tests
+        if: steps.filter.outputs.tests == 'true'
         run: task test
         env:
           PYTHONUNBUFFERED: "1"
