@@ -357,7 +357,7 @@ wheels = [
 ]
 
 [[package]]
-name = "home-stack"
+name = "hs-infra"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
