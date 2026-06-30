@@ -41,9 +41,9 @@ binds:
             backends:
               - mcp:
                   targets:
-                    - name: tasks-api
+                    - name: hs-api-tasks
                       mcp:
-                        host: http://tasks-api:8080/mcp
+                        host: http://hs-api-tasks:8080/mcp
 
           - name: tasks-mcp
             matches:
@@ -98,7 +98,7 @@ binds:
             backends:
               - mcp:
                   targets:
-                    - name: tasks-api
+                    - name: hs-api-tasks
                       policies:
                         transformations:
                           request:
@@ -112,4 +112,4 @@ binds:
                               x-user-email: 'default(jwt.email, "")'
                               x-user-name: 'coalesce(jwt.preferred_username, jwt.name, "")'
                       mcp:
-                        host: http://tasks-api:8080/mcp
+                        host: http://hs-api-tasks:8080/mcp

@@ -95,7 +95,7 @@ api.{$DOMAIN} {
 
 		handle @tasks_public_api_get {
 			uri strip_prefix /tasks
-			reverse_proxy tasks-api:8080 {
+			reverse_proxy hs-api-tasks:8080 {
 				import proxy_headers
 				header_up -Authorization
 			}
@@ -103,7 +103,7 @@ api.{$DOMAIN} {
 
 		handle @tasks_public_schema_get {
 			uri strip_prefix /tasks
-			reverse_proxy tasks-api:8080 {
+			reverse_proxy hs-api-tasks:8080 {
 				import proxy_headers
 				header_up -Authorization
 			}
@@ -111,7 +111,7 @@ api.{$DOMAIN} {
 
 		handle @tasks_health_head {
 			uri strip_prefix /tasks
-			reverse_proxy tasks-api:8080 {
+			reverse_proxy hs-api-tasks:8080 {
 				import proxy_headers
 				header_up -Authorization
 			}
@@ -143,7 +143,7 @@ api.{$DOMAIN} {
 				request_header X-Auth-Name {header.X-Auth-Request-Preferred-Username}
 
 				uri strip_prefix /tasks
-				reverse_proxy tasks-api:8080 {
+				reverse_proxy hs-api-tasks:8080 {
 					import proxy_headers
 					header_up -Authorization
 					header_up X-User-ID {header.X-Auth-Request-User}
@@ -174,7 +174,7 @@ tasks.{$DOMAIN} {
 			import require_tasks_group
 			request_header X-Auth-Name {header.X-Auth-Request-Preferred-Username}
 
-			reverse_proxy tasks-web:80 {
+			reverse_proxy hs-app-tasks:80 {
 				import proxy_headers
 				header_up -Authorization
 			}

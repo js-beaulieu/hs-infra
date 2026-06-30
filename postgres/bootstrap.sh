@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Idempotently create the tasks-api database and user.
+# Idempotently create the Tasks API database and user.
 # This script runs in a one-off container after Postgres is healthy,
 # so it works on first start and every subsequent restart.
 
@@ -41,4 +41,4 @@ psql \
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO :"tasks_user";
 EOSQL
 
-echo "tasks-api database and user ready"
+echo "Tasks API database and user ready"

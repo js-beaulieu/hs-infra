@@ -5,7 +5,7 @@
 - All Docker Compose config lives in `docker/` — not the repo root.
 - `docker/compose.yml` holds only the project name; compose files are assembled via `-f` flags (see `COMPOSE_FILES` in `Taskfile.yml`). The component files are `docker/core.yml` (shared infra), `docker/tasks.yml` (Tasks app services), and `docker/watchtower.yml` (automated updates).
 - Caddy is the only service publishing host ports. Every other service is private-Docker-network only.
-- Postgres is shared by Keycloak and tasks-api via separate databases, each on its own Docker network.
+- Postgres is shared by Keycloak and the Tasks API via separate databases, each on its own Docker network.
 - Auth stays at the gateway boundary: APIs consume trusted identity headers (`X-Auth-*`) injected by Caddy, oauth2-proxy, or agentgateway — never write JWT verification into individual APIs.
 - Keep `README.md` as a concise entrypoint and keep agent-specific instructions in this file.
 
@@ -47,11 +47,11 @@ task sops:encrypt   # encrypt vault.sops.yml in place
 - Agentgateway config is rendered from `docker/agentgateway/config.yaml.tmpl` by `agentgateway-bootstrap` at startup; `docker/agentgateway/config.yaml` is gitignored.
 - oauth2-proxy must NOT set `user_id_claim` — an oauth2-proxy bug causes email claim corruption when it's set explicitly.
 - MCP access tokens intentionally default to 1-year lifespan (`MCP_ACCESS_TOKEN_LIFESPAN_SECONDS`) to work around long-standing MCP client refresh/re-auth bugs; oauth2-proxy tokens stay at 5 minutes. Do not flag this as an accidental production-readiness issue unless the user asks to revisit the MCP compatibility tradeoff. Context: https://github.com/anthropics/claude-code/issues/26281, https://github.com/axiomhq/mcp/pull/63, https://github.com/Doist/todoist-mcp/issues/400#issuecomment-4096763597.
-- `ghcr.io/js-beaulieu/tasks-api:latest` is intentional for this single-environment homelab stack and planned Watchtower-style updates. Do not flag the user's own mutable app image tag as a production-readiness issue; third-party service tags should still stay explicit.
+- `ghcr.io/js-beaulieu/hs-api-tasks:latest` is intentional for this single-environment homelab stack and planned Watchtower-style updates. Do not flag the user's own mutable app image tag as a production-readiness issue; third-party service tags should still stay explicit.
 - `ghcr.io/js-beaulieu/caddy-cloudflare:2-alpine` is a custom Caddy image with the `caddy-dns/cloudflare` plugin, built by the `build-caddy` job in `.github/workflows/deploy.yml`. Local Compose builds from `caddy/Dockerfile`; production pulls from GHCR.
 - App APIs own their own database migrations. This repo provisions Postgres databases/users/grants only; do not flag missing app migration orchestration here unless the user asks to revisit that boundary.
 - Backups/restore automation is intentionally deferred. You may mention it only when the user asks for backup/DR work, not as a repeated production-readiness finding.
-- `tasks-web` is a temporary placeholder/local static frontend. Do not treat the placeholder as a blocker unless the task is specifically about frontend production rollout.
+- `hs-app-tasks` is a temporary placeholder/local static frontend. Do not treat the placeholder as a blocker unless the task is specifically about frontend production rollout.
 - MCP Dynamic Client Registration is intentionally enabled for connector onboarding. Do not tighten or remove DCR without explicit user direction; document and test the current allowlist behavior instead.
 - Production bootstrap is local-only and one-time from the user's workstation. GitHub Actions deploys run `site.yml` then `deploy.yml` on `main`.
 - Local Vagrant inventory is `ansible/inventories/local-vagrant/`; do not reintroduce the old `local-vm` inventory path.
