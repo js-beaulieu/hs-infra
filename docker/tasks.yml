@@ -61,9 +61,6 @@ services:
     <<: *security_defaults
     image: ghcr.io/js-beaulieu/hs-app-tasks:latest
     restart: unless-stopped
-    read_only: true
-    cap_drop:
-      - ALL
     labels:
       com.centurylinklabs.watchtower.enable: "true"
     networks:
