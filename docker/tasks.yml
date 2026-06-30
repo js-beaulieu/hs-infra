@@ -5,8 +5,8 @@ x-security-defaults: &security_defaults
 services:
   caddy:
     networks:
-      tasks-api:
-      tasks-web:
+      hs-api-tasks:
+      hs-app-tasks:
 
   postgres:
     networks:
@@ -34,14 +34,14 @@ services:
 
   agentgateway:
     networks:
-      tasks-api:
+      hs-api-tasks:
     depends_on:
-      tasks-api:
+      hs-api-tasks:
         condition: service_started
 
-  tasks-api:
+  hs-api-tasks:
     <<: *security_defaults
-    image: ghcr.io/js-beaulieu/tasks-api:latest
+    image: ghcr.io/js-beaulieu/hs-api-tasks:latest
     restart: unless-stopped
     labels:
       com.centurylinklabs.watchtower.enable: "true"
@@ -50,16 +50,16 @@ services:
       PORT: 8080
     networks:
       tasks-db:
-      tasks-api:
+      hs-api-tasks:
     depends_on:
       postgres:
         condition: service_healthy
       postgres-bootstrap:
         condition: service_completed_successfully
 
-  tasks-web:
+  hs-app-tasks:
     <<: *security_defaults
-    image: ghcr.io/js-beaulieu/tasks-web:latest
+    image: ghcr.io/js-beaulieu/hs-app-tasks:latest
     restart: unless-stopped
     read_only: true
     cap_drop:
@@ -67,9 +67,9 @@ services:
     labels:
       com.centurylinklabs.watchtower.enable: "true"
     networks:
-      tasks-web:
+      hs-app-tasks:
 
 networks:
-  tasks-api:
-  tasks-web:
+  hs-api-tasks:
+  hs-app-tasks:
   tasks-db:
