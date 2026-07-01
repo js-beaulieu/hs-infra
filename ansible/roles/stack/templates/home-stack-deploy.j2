@@ -30,4 +30,6 @@ set +a
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}pull
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}down --remove-orphans
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}rm -fs
+# Force-remove any stale unmanaged caddy container that survived compose teardown
+/usr/bin/docker rm -f home-stack-caddy-1 >/dev/null 2>&1 || true
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}up -d --build
