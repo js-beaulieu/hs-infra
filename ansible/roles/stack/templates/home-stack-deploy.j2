@@ -29,4 +29,5 @@ set +a
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}config --quiet
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}pull
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}down --remove-orphans
+/usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}rm -fs
 /usr/bin/docker compose {% for f in home_stack_compose_files %}-f {{ f }} {% endfor %}up -d --build
